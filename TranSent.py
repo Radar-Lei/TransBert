@@ -3,7 +3,7 @@ from ollama import chat
 from ollama import ChatResponse
 import os
 from pathlib import Path
-
+import numpy as np
 """
 First manually download the model, the merge them into one .gguf file using:
 cat qwen2.5-32b-instruct-q4_k_m*.gguf > qwen2.5-32b-instruct-q4_k_m.gguf
@@ -59,11 +59,9 @@ def sentiment_evaluation(inputs):
     print(result)
     return normalized
 
-def datafilter():
-    directory = '/Users/leida/TransBert/Data/Shenzhen'
-    output_directory = '/Users/leida/TransBert/cleaned_data'
+def datafilter(directory, output_directory):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
-    
+
     total_post_counter = 0
     valid_post_counter = 0
     valid_posts = []
@@ -91,7 +89,7 @@ def datafilter():
             
             try:
                 response_text = response.message.content.strip().lower()
-                if any(word in response_text for word in ['是', '对', 'yes', '确实']):
+                if response_text in ['是', '对', 'yes', '确实']:
                     valid_post_counter += 1
                     valid_posts.append(row.to_dict())  # Convert row to dictionary
                     print(f"有效微博数: {valid_post_counter}")
@@ -99,6 +97,7 @@ def datafilter():
                 print("Warning: Invalid response format")
             except Exception as e:
                 print(f"Error processing response: {e}")
+            print("\n")
     
     if valid_posts:
         output_df = pd.DataFrame(valid_posts, columns=original_columns)  # Create DataFrame with original columns
@@ -106,8 +105,10 @@ def datafilter():
         output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
         print(f"\nSaved \033[1;33m{valid_post_counter}\033[0m filtered posts out of \033[1;33m{total_post_counter}\033[0m total posts to {output_path}")
 
-if __name__ == "__main__":
+print("Starting script...")
 
-    datafilter()
-    # Load and use the model
-    # load_and_use_decoder_generative_model()
+if __name__ == "__main__":
+    # use absolute paths for multi-platform usage
+    directory = "/home/TransBert/Data/Shenzhen"
+    output_directory = "TransBert/cleaned_data"
+    datafilter(directory, output_directory)
