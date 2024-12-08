@@ -1,3 +1,6 @@
 examples/
 model/
 Data/
+.vscode/
+.DS_Store
+cleaned_data/
