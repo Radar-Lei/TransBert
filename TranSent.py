@@ -4,6 +4,8 @@ from ollama import ChatResponse
 import os
 from pathlib import Path
 import numpy as np
+import datetime
+import pandas as pd
 """
 First manually download the model, the merge them into one .gguf file using:
 cat qwen2.5-32b-instruct-q4_k_m*.gguf > qwen2.5-32b-instruct-q4_k_m.gguf
@@ -11,8 +13,10 @@ cat qwen2.5-32b-instruct-q4_k_m*.gguf > qwen2.5-32b-instruct-q4_k_m.gguf
 pip install gguf
 pip3 install sentencepiece
 pip install numpy==1.26.3
+
+pip proxy: proxy set
 """
-import pandas as pd
+
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, message="resource_tracker: There appear to be")
@@ -26,89 +30,126 @@ except ImportError:
     )
 
 
-def sentiment_evaluation(inputs):
+def sentiment_evaluation(directory, output_directory):
+    if torch.cuda.is_available():
+        device = "cuda:1"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    
+    print(f"Device: {device}")
     model_name = "cardiffnlp/twitter-xlm-roberta-base-sentiment-multilingual"
 
+    Path(output_directory).mkdir(parents=True, exist_ok=True)
+
     # Load the model using the Transformer classes
-    print (f"\n > Loading model '{model_name}'from HuggingFace...")
+    print (f"\n > Loading model '{model_name}' ")
     hf_model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    hf_model.to(device)
     hf_tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # hf_model = AutoModel.from_pretrained(model_name, gguf_file=filename)
-    # hf_tokenizer = AutoTokenizer.from_pretrained(model_name, gguf_file=filename)
 
-    # Bring the model into llware.  These models were not trained on instruction following, 
-    # so we set instruction_following to False
-    inputs = hf_tokenizer(inputs, return_tensors="pt")
-    with torch.no_grad():
-        logits = hf_model(**inputs).logits
-    
-    logits = logits.numpy()
-    logits = logits[0]
-    # Normalize using sigmoid
-    normalized = 1 / (1 + np.exp(-logits))
-    # Find index of max value for coloring
-    max_idx = np.argmax(normalized)
+    for csv_file in Path(directory).glob('*.csv'):
+        print(f"\nProcessing file: {csv_file} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        df = pd.read_csv(csv_file)
+        print(f"Total rows in {csv_file.name}: {len(df)}")
 
-    # Create formatted string with colored max value
-    result = "Negative:{}, Neutral:{}, Positive:{}".format(
-        f"\033[1;33m{normalized[0]:.4f}\033[0m" if max_idx == 0 else f"{normalized[0]:.4f}",
-        f"\033[1;33m{normalized[1]:.4f}\033[0m" if max_idx == 1 else f"{normalized[1]:.4f}",
-        f"\033[1;33m{normalized[2]:.4f}\033[0m" if max_idx == 2 else f"{normalized[2]:.4f}"
-    )
+        store_posts = []
 
-    print(result)
-    return normalized
+        for index, row in df.iterrows():
+            each_post = row['微博正文']
+            inputs = hf_tokenizer(each_post, return_tensors="pt").to(device)
+            with torch.no_grad():
+                logits = hf_model(**inputs).logits
+            
+            logits = logits.cpu().numpy()
+            logits = logits[0]
+            # Normalize using sigmoid
+            normalized = 1 / (1 + np.exp(-logits))
+            # row to dict such that we do not need to specify columns in the end
+            post_dict = row.to_dict()
+                # Add normalized sentiment scores
+            post_dict['Negative'] = normalized[0]
+            post_dict['Neutral'] = normalized[1]
+            post_dict['Positive'] = normalized[2]
+            store_posts.append(post_dict)  # Convert row to dictionary
+
+        output_df = pd.DataFrame(store_posts)
+        output_filename = f"senti_{csv_file.name}"
+        output_path = os.path.join(output_directory, output_filename)
+        output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
+
 
 def datafilter(directory, output_directory):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
 
     total_post_counter = 0
     valid_post_counter = 0
-    valid_posts = []
-    original_columns = None  # Store original column names
-    
+
     for csv_file in Path(directory).glob('*.csv'):
-        print(f"\nProcessing file: {csv_file}")
+        print(f"\nProcessing file: {csv_file} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         df = pd.read_csv(csv_file)
         print(f"Total rows in {csv_file.name}: {len(df)}")
         total_post_counter += len(df)
-        # Store column names from first file
-        if original_columns is None:
-            original_columns = df.columns
-        
+
+        valid_posts = []
+
         for index, row in df.iterrows():
             each_post = row['微博正文']
-            print(f"当前微博是否与公交(地铁)服务相关: {each_post}")
+            if len(each_post) > 512:
+                continue
             response: ChatResponse = chat(model='qwen2.5:32b', messages=[
                 {
                     'role': 'user',
                     'content': f"以下内容是否与地铁服务质量、地铁环境相关, 只回答'是'或'否', 不要回答你的分析内容 : {each_post}",
                 },
             ])
-            print(f"\033[1;33m{response.message.content}\033[0m")
             
             try:
                 response_text = response.message.content.strip().lower()
                 if response_text in ['是', '对', 'yes', '确实']:
                     valid_post_counter += 1
                     valid_posts.append(row.to_dict())  # Convert row to dictionary
-                    print(f"有效微博数: {valid_post_counter}")
             except AttributeError:
                 print("Warning: Invalid response format")
             except Exception as e:
                 print(f"Error processing response: {e}")
-            print("\n")
-    
-    if valid_posts:
-        output_df = pd.DataFrame(valid_posts, columns=original_columns)  # Create DataFrame with original columns
-        output_path = Path(output_directory) / 'filtered_posts.csv'
-        output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
-        print(f"\nSaved \033[1;33m{valid_post_counter}\033[0m filtered posts out of \033[1;33m{total_post_counter}\033[0m total posts to {output_path}")
 
-print("Starting script...")
+        if valid_posts:
+            output_df = pd.DataFrame(valid_posts)  # Create DataFrame with original columns
+            output_filename = f"cleaned_{csv_file.name}"
+            output_path = Path(output_directory) / output_filename
+            output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
+
+    print(f"\nSaved \033[1;33m{valid_post_counter}\033[0m filtered posts out of \033[1;33m{total_post_counter}\033[0m total posts.")
 
 if __name__ == "__main__":
-    # use absolute paths for multi-platform usage
-    directory = "/home/TransBert/Data/Shenzhen"
-    output_directory = "TransBert/cleaned_data"
-    datafilter(directory, output_directory)
+    """
+    screen -ls
+    run 'ollama serve' in "screen" instance of terminal first
+    python TranSent.py > data_filer_log.txt
+    """
+        # use absolute paths for multi-platform usage
+    original_dir = "/home/TransBert/Data/Shenzhen"
+    cleaned_dir = "/home/TransBert/cleaned_results"
+    sentiment_dir = "/home/TransBert/senti_results"
+
+    start_time = datetime.datetime.now()
+    print(f"Start time for data cleaning: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    datafilter(original_dir, cleaned_dir)
+    end_time = datetime.datetime.now()
+
+    # to realease model and GPU memory
+    os.system("ollama stop qwen2.5:32b")
+    print(f"End time for data cleaning: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    time_used = (end_time - start_time).total_seconds() / 60
+    print(f"Time used for data cleaning: {time_used:.2f} minutes")
+    print("\n")
+    
+    print(f"Start time for sentiment analysis: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    sentiment_evaluation(cleaned_dir, sentiment_dir)
+    end_time = datetime.datetime.now()
+    print(f"End time for sentiment analysis: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    time_used = (end_time - start_time).total_seconds() / 60
+    print(f"Time used for sentiment analysis: {time_used:.2f} minutes")

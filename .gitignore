@@ -3,5 +3,6 @@ model/
 Data/
 .vscode/
 .DS_Store
-cleaned_data/
+cleaned_results/
 *.txt
+senti_results/
