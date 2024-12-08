@@ -42,11 +42,22 @@ def sentiment_evaluation(inputs):
     with torch.no_grad():
         logits = hf_model(**inputs).logits
     
-    print (logits)
-    return logits
+    logits = logits.numpy()
+    logits = logits[0]
+    # Normalize using sigmoid
+    normalized = 1 / (1 + np.exp(-logits))
+    # Find index of max value for coloring
+    max_idx = np.argmax(normalized)
 
-import os
-from pathlib import Path
+    # Create formatted string with colored max value
+    result = "Negative:{}, Neutral:{}, Positive:{}".format(
+        f"\033[1;33m{normalized[0]:.4f}\033[0m" if max_idx == 0 else f"{normalized[0]:.4f}",
+        f"\033[1;33m{normalized[1]:.4f}\033[0m" if max_idx == 1 else f"{normalized[1]:.4f}",
+        f"\033[1;33m{normalized[2]:.4f}\033[0m" if max_idx == 2 else f"{normalized[2]:.4f}"
+    )
+
+    print(result)
+    return normalized
 
 def datafilter():
     directory = '/Users/leida/TransBert/Data/Shenzhen'

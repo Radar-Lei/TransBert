@@ -58,7 +58,7 @@ def sentiment_evaluation(inputs):
     )
 
     print(result)
-    return logits
+    return normalized
 
 def datafilter():
     directory = '/Users/leida/TransBert/Data/Shenzhen'
