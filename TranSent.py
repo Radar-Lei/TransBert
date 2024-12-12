@@ -87,6 +87,13 @@ def datafilter(directory, output_directory):
     valid_post_counter = 0
 
     for csv_file in Path(directory).glob('*.csv'):
+        output_filename = f"cleaned_{csv_file.name}"
+        output_path = Path(output_directory) / output_filename
+
+        if output_path.exists():
+            print(f"File {output_filename} already exists. Skipping.")
+            continue
+
         print(f"\nProcessing file: {csv_file} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         df = pd.read_csv(csv_file)
         print(f"Total rows in {csv_file.name}: {len(df)}")
@@ -96,6 +103,8 @@ def datafilter(directory, output_directory):
 
         for index, row in df.iterrows():
             each_post = row['微博正文']
+            if type(each_post) != str:
+                continue
             if len(each_post) > 512:
                 continue
             response: ChatResponse = chat(model='qwen2.5:32b', messages=[
@@ -117,8 +126,6 @@ def datafilter(directory, output_directory):
 
         if valid_posts:
             output_df = pd.DataFrame(valid_posts)  # Create DataFrame with original columns
-            output_filename = f"cleaned_{csv_file.name}"
-            output_path = Path(output_directory) / output_filename
             output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
     print(f"\nSaved \033[1;33m{valid_post_counter}\033[0m filtered posts out of \033[1;33m{total_post_counter}\033[0m total posts.")
