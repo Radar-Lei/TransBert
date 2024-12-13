@@ -5,4 +5,6 @@ Data/
 .DS_Store
 cleaned_results/
 *.txt
+*.csv
+*.xlsx
 senti_results/
