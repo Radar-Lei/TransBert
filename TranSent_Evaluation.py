@@ -57,7 +57,7 @@ def sentiment_evaluation(directory, output_directory):
         store_posts = []
 
         for index, row in df.iterrows():
-            each_post = row['微博正文']
+            each_post = row['微博正文'] if '微博正文' in row else row['Blog']
             inputs = hf_tokenizer(each_post, return_tensors="pt").to(device)
             with torch.no_grad():
                 logits = hf_model(**inputs).logits
@@ -89,16 +89,20 @@ def datafilter(directory, output_directory):
     total_post_counter = 0
     valid_post_counter = 0
 
-    for csv_file in Path(directory).glob('*.csv'):
-        print(f"\nProcessing file: {csv_file} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        df = pd.read_csv(csv_file)
-        print(f"Total rows in {csv_file.name}: {len(df)}")
-        total_post_counter += len(df)
+    for file_path in Path(directory).glob('*.[cx]*'):
+        if file_path.suffix.lower() in ['.csv', '.xlsx']:
+            print(f"\nProcessing file: {file_path} at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            if file_path.suffix.lower() == '.csv':
+                df = pd.read_csv(file_path)
+            else:
+                df = pd.read_excel(file_path)
+            print(f"Total rows in {file_path.name}: {len(df)}")
+            total_post_counter += len(df)
 
         valid_posts = []
 
         for index, row in df.iterrows():
-            each_post = row['微博正文']
+            each_post = row['微博正文'] if '微博正文' in row else row['Blog']
             if len(each_post) > 512:
                 continue
             response: ChatResponse = chat(model='qwen2.5:32b', messages=[
@@ -132,26 +136,27 @@ if __name__ == "__main__":
     run 'ollama serve' in "screen" instance of terminal first
     python TranSent.py > data_filer_log.txt
     """
-        # use absolute paths for multi-platform usage
-    original_dir = "/Users/leida/TransBert/Data/Shenzhen"
-    cleaned_dir = "/Users/leida/TransBert/cleaned_results"
-    sentiment_dir = "/Users/leida/TransBert/senti_results"
+    # use absolute paths for multi-platform usage
+    original_dir = "/Users/leida/TransBert/data_eva"
+
+    cleaned_dir = "/Users/leida/TransBert/cleaned_eva"
+    sentiment_dir = "/Users/leida/TransBert/senti_results_eva"
 
     start_time = datetime.datetime.now()
     print(f"Start time for data cleaning: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # datafilter(original_dir, cleaned_dir)
+    datafilter(original_dir, cleaned_dir)
     end_time = datetime.datetime.now()
 
     # to realease model and GPU memory
-    # os.system("ollama stop qwen2.5:32b")
+    os.system("ollama stop qwen2.5:32b")
     print(f"End time for data cleaning: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
     time_used = (end_time - start_time).total_seconds() / 60
     print(f"Time used for data cleaning: {time_used:.2f} minutes")
     print("\n")
     
     print(f"Start time for sentiment analysis: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    sentiment_evaluation(cleaned_dir, sentiment_dir)
+    # sentiment_evaluation(cleaned_dir, sentiment_dir)
     end_time = datetime.datetime.now()
     print(f"End time for sentiment analysis: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
     time_used = (end_time - start_time).total_seconds() / 60

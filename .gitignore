@@ -8,3 +8,5 @@ cleaned_results/
 *.csv
 *.xlsx
 senti_results/
+data_eva/
+results_eva/
