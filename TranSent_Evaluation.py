@@ -124,7 +124,7 @@ def datafilter(directory, output_directory):
 
         if valid_posts:
             output_df = pd.DataFrame(valid_posts)  # Create DataFrame with original columns
-            output_filename = f"cleaned_{csv_file.name}"
+            output_filename = f"cleaned_{file_path.name}"
             output_path = Path(output_directory) / output_filename
             output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
@@ -137,10 +137,10 @@ if __name__ == "__main__":
     python TranSent.py > data_filer_log.txt
     """
     # use absolute paths for multi-platform usage
-    original_dir = "/Users/leida/TransBert/data_eva"
 
-    cleaned_dir = "/Users/leida/TransBert/cleaned_eva"
-    sentiment_dir = "/Users/leida/TransBert/senti_results_eva"
+    original_dir = os.path.join(os.getcwd(), "TransBert", "data_eva")
+    cleaned_dir = os.path.join(os.getcwd(), "TransBert", "cleaned_eva")
+    sentiment_dir = os.path.join(os.getcwd(), "TransBert", "senti_results_eva")
 
     start_time = datetime.datetime.now()
     print(f"Start time for data cleaning: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
