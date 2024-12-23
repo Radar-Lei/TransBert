@@ -66,16 +66,20 @@ def sentiment_evaluation(directory, output_directory):
             logits = logits[0]
             # Normalize using sigmoid
             normalized = 1 / (1 + np.exp(-logits))
-            # if 
-            if not (normalized[0] == max(normalized) or normalized[2] == max(normalized) and abs(max(normalized) - normalized[1]) > 0.1):
-                continue
+            # # if 
+            # if not (normalized[0] == max(normalized) or normalized[2] == max(normalized) and abs(max(normalized) - normalized[1]) > 0.1):
+            #     continue
             # row to dict such that we do not need to specify columns in the end
             post_dict = row.to_dict()
-                # Add normalized sentiment scores
-            post_dict['Negative'] = normalized[0]
-            post_dict['Neutral'] = normalized[1]
-            post_dict['Positive'] = normalized[2]
-            store_posts.append(post_dict)  # Convert row to dictionary
+
+            # Find max sentiment and set others to 0
+            max_index = np.argmax(normalized)
+            sentiment_values = [0, 0, 0]
+            sentiment_values[max_index] = 1
+            post_dict['Neg'] = sentiment_values[0]
+            post_dict['Neu'] = sentiment_values[1]
+            post_dict['Pos'] = sentiment_values[2]
+            store_posts.append(post_dict)
 
         output_df = pd.DataFrame(store_posts)
         output_filename = f"senti_{csv_file.name}"
@@ -138,25 +142,24 @@ if __name__ == "__main__":
     """
     # use absolute paths for multi-platform usage
 
-    original_dir = os.path.join(os.getcwd(), "TransBert", "data_eva")
-    cleaned_dir = os.path.join(os.getcwd(), "TransBert", "cleaned_eva")
-    sentiment_dir = os.path.join(os.getcwd(), "TransBert", "senti_results_eva")
+    original_dir = os.path.join(os.getcwd(), "data_eva")
+    cleaned_dir = os.path.join(os.getcwd(), "cleaned_eva")
+    sentiment_dir = os.path.join(os.getcwd(), "senti_results_eva")
 
+    # start_time = datetime.datetime.now()
+    # print(f"Start time for data cleaning: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    # datafilter(original_dir, cleaned_dir)
+    # end_time = datetime.datetime.now()
+    # # to realease model and GPU memory
+    # os.system("ollama stop qwen2.5:32b")
+    # print(f"End time for data cleaning: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    # time_used = (end_time - start_time).total_seconds() / 60
+    # print(f"Time used for data cleaning: {time_used:.2f} minutes")
+    # print("\n")
+    
     start_time = datetime.datetime.now()
-    print(f"Start time for data cleaning: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    
-    datafilter(original_dir, cleaned_dir)
-    end_time = datetime.datetime.now()
-
-    # to realease model and GPU memory
-    os.system("ollama stop qwen2.5:32b")
-    print(f"End time for data cleaning: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    time_used = (end_time - start_time).total_seconds() / 60
-    print(f"Time used for data cleaning: {time_used:.2f} minutes")
-    print("\n")
-    
     print(f"Start time for sentiment analysis: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    # sentiment_evaluation(cleaned_dir, sentiment_dir)
+    sentiment_evaluation(cleaned_dir, sentiment_dir)
     end_time = datetime.datetime.now()
     print(f"End time for sentiment analysis: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
     time_used = (end_time - start_time).total_seconds() / 60
