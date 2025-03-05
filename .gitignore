@@ -10,3 +10,5 @@ cleaned_results/
 senti_results/
 data_eva/
 results_eva/
+*.ipynb
+*.svg
