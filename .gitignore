@@ -12,3 +12,6 @@ data_eva/
 results_eva/
 *.ipynb
 *.svg
+prefiltered_results_HK/
+cleaned_results_HK/
+cleaned_eva/

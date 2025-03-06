@@ -132,6 +132,7 @@ def datafilter(directory, output_directory):
 
 if __name__ == "__main__":
     """
+    prxosy set
     screen -ls
     run 'ollama serve' in "screen" instance of terminal first
     python TranSent.py > data_filer_log.txt
