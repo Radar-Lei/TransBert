@@ -108,7 +108,7 @@ def datafilter(directory, output_directory):
 
     total_post_counter = 0
     valid_post_counter = 0
-    client = OpenAI(api_key="sk-128630a6c02a40b08cc3399014dbdf13", base_url="https://api.deepseek.com")
+    client = OpenAI(api_key="", base_url="https://api.deepseek.com")
 
     for csv_file in Path(directory).glob('*.csv'):
         output_filename = f"cleaned_{csv_file.name}"
