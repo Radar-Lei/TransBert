@@ -188,7 +188,7 @@ def datafilter(directory, output_directory, api_keys=None):
                             model="deepseek-reasoner",
                             messages=[
                                 {"role": "system", "content": "You are a data filter"},
-                                {"role": "user", "content": f"以下用户社交媒体发表的post是否是乘客对地铁公交服务质量、地铁公交环境相关的评价, 可能涉及到Reliability, Crowdedness, Comfort, Safety and securit, Waiting conditions, Service facilities等方面, 只回答'是'或'否', 不要回答你的分析内容。注意有些posts并非是真正的评价地铁服务地铁系统, 有可能只是提到了地铁, metro, subway等关键词 : {each_post}"},
+                                {"role": "user", "content": f"以下用户社交媒体发表的post是否是乘客对地铁公交服务质量、地铁公交环境相关的评价, 可能涉及到Reliability, Crowdedness, Comfort, Safety and securit, Waiting conditions, Service facilities, travel experience, travel time等方面, 只回答'是'或'否', 不要回答你的分析内容。注意有些posts并非是真正的评价地铁服务地铁系统, 有可能只是提到了地铁, metro, subway等关键词 : {each_post}"},
                             ],
                             stream=False
                         )
@@ -220,7 +220,7 @@ def datafilter(directory, output_directory, api_keys=None):
             total_post_counter += len(df)
             
             # Split dataframe into chunks based on number of API keys available
-            num_chunks = min(len(api_keys), max(1, len(df) // 50))  # At least 1 chunk, max 50 rows per API key
+            num_chunks = min(len(api_keys), max(1, len(df) // 20))  # At least 1 chunk, max 50 rows per API key
             chunk_size = math.ceil(len(df) / num_chunks)
             chunks = [df.iloc[i:i+chunk_size] for i in range(0, len(df), chunk_size)]
             
@@ -265,18 +265,18 @@ if __name__ == "__main__":
     use absolute paths for multi-platform usage
     """
 
-    api_ls = read_api_keys_from_csv("/home/TransBert/Data/DeepSeek_API_Keys.csv")
+    api_ls = read_api_keys_from_csv("Data/DeepSeek_keys.csv")
     
-    original_dir = "/home/TransBert/Data/Twitter_Hong Kong"
-    prefiltered_dir = "/home/TransBert/prefiltered_results_HK"
-    cleaned_dir = "/home/TransBert/cleaned_results_HK"
-    sentiment_dir = "/home/TransBert/senti_results"
+    original_dir = "Data/Twitter_Hong Kong"
+    prefiltered_dir = "prefiltered_results_HK"
+    cleaned_dir = "cleaned_results_HK"
+    sentiment_dir = "senti_results"
 
     start_time = datetime.datetime.now()
     print(f"Start time for data prefiltering: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # First apply keyword-based prefiltering
-    has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
+    # has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
     prefilter_end_time = datetime.datetime.now()
     time_used = (prefilter_end_time - start_time).total_seconds() / 60
     print(f"Time used for data prefiltering: {time_used:.2f} minutes")

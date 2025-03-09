@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import torch
 from ollama import chat
 from ollama import ChatResponse
@@ -107,7 +108,7 @@ def keyword_prefilter(directory, output_directory):
 
 
 
-def datafilter(directory, output_directory):
+def datafilter(directory, output_directory, batch_size=20):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
 
     total_post_counter = 0
@@ -127,40 +128,66 @@ def datafilter(directory, output_directory):
         total_post_counter += len(df)
 
         valid_posts = []
-
-        for index, row in df.iterrows():
-            each_post = row['text']
-            if type(each_post) != str:
-                continue
-            if len(each_post) > 512:
-                continue
+        
+        # Filter out posts that are not strings or too long
+        valid_df = df[df['text'].apply(lambda x: isinstance(x, str) and len(x) <= 512)].copy()
+        
+        # Process in batches
+        for i in range(0, len(valid_df), batch_size):
+            batch_df = valid_df.iloc[i:i+batch_size]
+            batch_posts = batch_df['text'].tolist()
+            
+            # Format batch posts with numbers
+            formatted_posts = "\n\n".join([f"Post {j+1}: {post}" for j, post in enumerate(batch_posts)])
+            
+            print(f"Processing batch {i//batch_size + 1}/{(len(valid_df) + batch_size - 1)//batch_size}")
+            
             response: ChatResponse = chat(model='deepseek-r1:32b', messages=[
                 {
                     'role': 'user',
-                    'content': f"以下用户社交媒体发表的post是否是乘客对地铁公交服务质量、地铁公交环境相关的评价, 可能涉及到Reliability, Crowdedness, Comfort, Safety and securit, Waiting conditions, Service facilities等方面, 只回答'是'或'否', 不要回答你的分析内容。注意有些posts并非是真正的评价地铁服务地铁系统, 有可能只是提到了地铁, metro, subway等关键词 : {each_post}",
+                    'content': f"""请评估以下{len(batch_posts)}个社交媒体post是否是对地铁公交服务质量、地铁公交环境相关的评价。
+                    可能涉及到Reliability, Crowdedness, Comfort, Safety and security, Waiting conditions, Service facilities等方面。
+                    请注意, 有些posts并非真正评价地铁服务或地铁系统, 可能只是提到了地铁、metro、subway等关键词。
+
+                    {formatted_posts}
+
+                    请以JSON格式回答,每个post对应一个是或否的结论:
+                    {{
+                    "post1": "是/否",
+                    "post2": "是/否",
+                    ...
+                    }}
+                    仅返回JSON格式,不需要其他解释。""",
                 },
             ])
-            print(f"\033[1;33m{each_post}\033[0m")
 
             try:
-                response_text = response.message.content.strip().lower()
-                if '\n</think>\n\n' in response_text:
-                    response_text = response_text.split('\n</think>\n\n')[-1]
-                
-                # Now check if the final response indicates a valid subway service review
-                if any(word in response_text for word in ['是', '对', 'yes', '确实']):
-                    valid_post_counter += 1
-                    valid_posts.append(row.to_dict())  # Convert row to dictionary
-                print(f"is related to transit service: {response_text}")
-
-            except AttributeError:
-                print("Warning: Invalid response format")
+                response_text = response.message.content.strip()
+                # Extract JSON part if there's explanatory text
+                if '{' in response_text and '}' in response_text:
+                    json_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
+                    results = eval(json_str.replace('post1', '"post1"').replace('post2', '"post2"')
+                                   .replace('post3', '"post3"').replace('post4', '"post4"')
+                                   .replace('post5', '"post5"').replace('是', '"是"').replace('否', '"否"'))
+                    
+                    # Process results
+                    for j, post_idx in enumerate(batch_df.index):
+                        post_key = f"post{j+1}"
+                        if post_key in results and results[post_key] == "是":
+                            valid_post_counter += 1
+                            valid_posts.append(df.iloc[post_idx].to_dict())
+                            print(f"\033[1;32mPost {j+1} is related to transit service\033[0m")
+                        else:
+                            print(f"\033[1;31mPost {j+1} is NOT related to transit service\033[0m")
+                else:
+                    print(f"Invalid response format: {response_text}")
+                    
             except Exception as e:
-                print(f"Error processing response: {e}")
+                print(f"Error processing batch response: {e}")
+                print(f"Response text: {response_text}")
 
         if valid_posts:
             output_df = pd.DataFrame(valid_posts)
-            # output_df.set_index(output_df.columns[0], drop=True, inplace=True) 
             output_df.to_csv(output_path, index=False, encoding='utf-8-sig')
 
     print(f"\nSaved \033[1;33m{valid_post_counter}\033[0m filtered posts out of \033[1;33m{total_post_counter}\033[0m total posts.")
@@ -174,16 +201,16 @@ if __name__ == "__main__":
     use absolute paths for multi-platform usage
     """
     
-    original_dir = "/home/TransBert/Data/Twitter_Hong Kong"
-    prefiltered_dir = "/home/TransBert/prefiltered_results_HK"
-    cleaned_dir = "/home/TransBert/cleaned_results_HK"
-    sentiment_dir = "/home/TransBert/senti_results"
+    original_dir = "Data/Twitter_Hong Kong"
+    prefiltered_dir = "prefiltered_results_HK"
+    cleaned_dir = "cleaned_results_HK"
+    sentiment_dir = "senti_results"
 
     start_time = datetime.datetime.now()
     print(f"Start time for data prefiltering: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # First apply keyword-based prefiltering
-    has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
+    # has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
     prefilter_end_time = datetime.datetime.now()
     time_used = (prefilter_end_time - start_time).total_seconds() / 60
     print(f"Time used for data prefiltering: {time_used:.2f} minutes")
