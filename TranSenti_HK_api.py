@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
 from openai import OpenAI
 import os
 from pathlib import Path
 import datetime
 import pandas as pd
+import time
+import csv
 """
 First manually download the model, the merge them into one .gguf file using:
 cat qwen2.5-32b-instruct-q4_k_m*.gguf > qwen2.5-32b-instruct-q4_k_m.gguf
@@ -27,13 +30,28 @@ except ImportError:
     )
 
 
-# Read the list from a text file
-def read_keys(filename):
-    result = []
-    with open(filename, 'r') as file:
-        for line in file:
-            result.append(line.strip())
-    return result
+def read_api_keys_from_csv(filepath):
+    """
+    Read API keys from a CSV file without headers and return as a list of strings.
+    Args:
+        filepath (str): Path to the CSV file containing API keys
+    Returns:
+        list: List of API keys as strings
+    """
+    keys = []
+    try:
+        with open(filepath, 'r') as file:
+            csv_reader = csv.reader(file)
+            for row in csv_reader:
+                if row:  # Skip empty rows
+                    keys.append(row[0])
+        return keys
+    except FileNotFoundError:
+        print(f"Error: File '{filepath}' not found.")
+        return []
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        return []
 
 def keyword_prefilter(directory, output_directory):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
@@ -62,10 +80,8 @@ def keyword_prefilter(directory, output_directory):
         "トゥエンマーライン", "Línea Tuen Ma", "機場快線", "机场快线", "Airport Express", 
         "Express de l'aéroport", "エアポートエクスプレス", "Expreso del Aeropuerto",
 
-
         # HK station name list
-        '金鐘', '金钟', 'Admiralty', 'アドミラルティ', '애드미럴티', 'Amirauté', 'Almirantazgo', '機場', '机场', 'Airport', 'エアポート', '에어포트', 'Aéroport', 'Aeropuerto', '博覽館', '博览馆', 'AsiaWorld-Expo', 'アジアワールドエキスポ', '아시아월드엑스포', '柯士甸', 'Austin', 'オースティン', '오스틴', '銅鑼灣', '铜锣湾', 'Causeway Bay', 'コーズウェイ・ベイ', '코즈웨이 베이', '中環', '中环', 'Central', 'セントラル', '센트럴', '柴灣', '柴湾', 'Chai Wan', 'チャイワン', '차이완', '車公廟', '车公庙', 'Che Kung Temple', 'チェクンミャオ', '차공묘', 'Temple Che Kung', 'Templo de Che Kung', '長沙灣', '长沙湾', 'Cheung Sha Wan', 'チャンサーワン', '창사완', '彩虹', 'Choi Hung', 'チョイホン', '쵀이헝', '第一城', 'City One', 'シティワン', '시티원', 'Cité Un', 'Ciudad Uno', '鑽石山', '钻石山', 'Diamond Hill', 'ダイヤモンドヒル', '다이아몬드 힐', 'Diamond Hill', 'Colina del Diamante', '迪士尼', 'Disneyland Resort', 'ディズニーランドリゾート', '디즈니랜드 리조트', 'Complexe Disneyland', 'Complejo Disneyland', '尖東', '尖东', 'East Tsim Sha Tsui', 'イースト・チムシャツイ', '이스트 침사추이', 'Tsim Sha Tsui Est', 'Tsim Sha Tsui Este', '粉嶺', '粉岭', 'Fanling', 'ファンリン', '판링', '火炭', 'Fo Tan', 'フォータン', '포탄', '炮台山', 'Fortress Hill', 'フォートレスヒル', '포트리스 힐', 'Colline de la Forteresse', 'Colina de la Fortaleza', '坑口', 'Hang Hau', 'ハンハウ', '항하우', '杏花邨', 'Heng Fa Chuen', 'ヘンファチュン', '헝파촌', '恆安', '恒安', 'Heng On', 'ヘンオン', '헝온', '紅磡', 'Hung Hom', 'フンホム', '훙험', '佐敦', 'Jordan', 'ジョーダン', '조던', '錦上路', '锦上路', 'Kam Sheung Road', 'カムシンロード', '캄셍 로드', 'Route Kam Sheung', 'Carretera Kam Sheung', '九龍', '九龙', 'Kowloon', 'クーロン', '구룡', '九龍灣', '九龙湾', 'Kowloon Bay', 'クーロンベイ', '구룡만', 'Baie de Kowloon', 'Bahía de Kowloon', '九龍塘', '九龙塘', 'Kowloon Tong', 'クーロントン', '구룡통', '葵芳', 'Kwai Fong', 'クワイフォン', '퀘이팡', '葵興', '葵兴', 'Kwai Hing', 'クワイヒン', '퀘이힝', '觀塘', '观塘', 'Kwun Tong', 'クーントン', '관통', '荔枝角', 'Lai Chi Kok', 'ライチコク', '라이치콕', '荔景', 'Lai King', 'ライキン', '라이킹', '藍田', '蓝田', 'Lam Tin', 'ラムティン', '람틴', '羅湖', '罗湖', 'Lo Wu', 'ロウー', '로우', '康城', 'LOHAS Park', 'ロハスパーク', '로하스 파크', 'Parc LOHAS', 'Parque LOHAS', '樂富', '乐富', 'Lok Fu', 'ロックフー', '록푸', '落馬洲', '落马洲', 'Lok Ma Chau', 'ロックマチャウ', '록마차우', '朗屏', 'Long Ping', 'ロンピン', '롱핑', '馬鞍山', '马鞍山', 'Ma On Shan', 'マーオンシャン', '마안산', '美孚', 'Mei Foo', 'メイフー', '메이푸', '旺角', 'Mong Kok', 'モンコク', '몽콕', '旺角東', '旺角东', 'Mong Kok East', 'モンコクイースト', '몽콕 이스트', 'Mong Kok Est', 'Mong Kok Este', '南昌', 'Nam Cheong', 'ナムチョン', '남창', '牛頭角', '牛头角', 'Ngau Tau Kok', 'ンガウタウコク', '우타우콕', '北角', 'North Point', 'ノースポイント', '노스 포인트', '奧運', '奥运', 'Olympic', 'オリンピック', '올림픽', 'Olympique', 'Olímpico', '寶琳', '宝琳', 'Po Lam', 'ポーラム', '보람', '太子', 'Prince Edward', 'プリンスエドワード', '프린스 에드워드', 'Prince Edward', 'Príncipe Eduardo', '鰂魚涌', '鲗鱼涌', 'Quarry Bay', 'クォリーベイ', '쿼리 베이', '馬場', '马场', 'Racecourse', 'レースコース', '레이스코스', 'Hippodrome', 'Hipódromo', '西灣河', '西湾河', 'Sai Wan Ho', 'サイワンホー', '사이완호', '沙田', 'Sha Tin', 'シャーティン', '사틴', '沙田圍', '沙田围', 'Sha Tin Wai', 'シャーティンウェイ', '사틴웨이', '深水埗', 'Sham Shui Po', 'シャムシュイポー', '삼수이보', '筲箕灣', '筲箕湾', 'Shau Kei Wan', 'シャウケイワン', '사우케이완', '石硤尾', '石硖尾', 'Shek Kip Mei', 'シェキップメイ', '석합미', '石門', '石门', 'Shek Mun', 'シェクムン', '석문', '上水', 'Sheung Shui', 'シェンシュイ', '상수', '上環', '上环', 'Sheung Wan', 'シェンワン', '상환', '兆康', 'Siu Hong', 'シウホン', '시오홍', '欣澳', 'Sunny Bay', 'サニーベイ', '써니 베이', 'Baie ensoleillée', 'Bahía Soleada', '太古', 'Tai Koo', 'タイクー', '타이쿠', '大埔墟', 'Tai Po Market', 'タイポーマーケット', '타이포 마켓', 'Marché de Tai Po', 'Mercado de Tai Po', '大水坑', 'Tai Shui Hang', 'タイシュイハン', '타이수이항', '大圍', '大围', 'Tai Wai', 'タイワイ', '타이와이', '太和', 'Tai Wo', 'タイウォ', '타이워', '大窩口', '大窝口', 'Tai Wo Hau', 'タイウォハウ', '타이워하우', '天后', 'Tin Hau', 'ティンハウ', '틴하우', '天水圍', '天水围', 'Tin Shui Wai', 'ティンシュイワイ', '틴수이와이', '調景嶺', '调景岭', 'Tiu Keng Leng', 'ティウキンレン', '티우깡링', '將軍澳', '将军澳', 'ツェンジンオー', '청관오', 'Tseung Kwan', '尖沙咀', 'Tsim Sha Tsui', 'チムシャツイ', '침사추이', '青衣', 'Tsing Yi', 'チンイー', '칭이', '荃灣', '荃湾', 'Tsuen Wan', 'ツェンワン', '츄완', '荃灣西', '荃湾西', 'Tsuen Wan West', 'ツェンワンウェスト', '츄완 웨스트', 'Tsuen Wan Ouest', 'Tsuen Wan Oeste', '屯門', '屯门', 'Tuen Mun', 'トゥエンムン', 'тун문', '東涌', '东涌', 'Tung Chung', 'トゥンチョン', '퉁충', '大學', '大学', 'University', 'ユニバーシティ', '대학', 'Université', 'Universidad', '灣仔', '湾仔', 'ワンチャイ', '완차이', 'Wan Chai', '黃大仙', '黄大仙', 'Wong Tai Sin', 'ウォンタイシン', '웡타이신', '烏溪沙', '乌溪沙', 'ウーカイシャー', '우카이사', 'Wu Kai Sha', '油麻地', 'ヤウマーテイ', '야우마티', 'Yau Ma Tei', '油塘', 'Yau Tong', 'ヤウトン', '야우통', 'Yau Tong', '元朗', 'ユンロン', '윈롱', 'Yuen Long',
-    ]
+        '金鐘', '金钟', 'Admiralty', 'アドミラルティ', '애드미럴티', 'Amirauté', 'Almirantazgo', '機場', '机场', 'Airport', 'エアポート', '에어포트', 'Aéroport', 'Aeropuerto', '博覽館', '博览馆', 'AsiaWorld-Expo', 'アジアワールドエキスポ', '아시아월드엑스포', '柯士甸', 'Austin', 'オースティン', '오스틴', '銅鑼灣', '铜锣湾', 'Causeway Bay', 'コーズウェイ・ベイ', '코즈웨이 베이', '中環', '中环', 'Central', 'セントラル', '센트럴', '柴灣', '柴湾', 'Chai Wan', 'チャイワン', '차이완', '車公廟', '车公庙', 'Che Kung Temple', 'チェクンミャオ', '차공묘', 'Temple Che Kung', 'Templo de Che Kung', '長沙灣', '长沙湾', 'Cheung Sha Wan', 'チャンサーワン', '창사완', '彩虹', 'Choi Hung', 'チョイホン', '쵀이헝', '第一城', 'City One', 'シティワン', '시티원', 'Cité Un', 'Ciudad Uno', '鑽石山', '钻石山', 'Diamond Hill', 'ダイヤモンドヒル', '다이아몬드 힐', 'Diamond Hill', 'Colina del Diamante', '迪士尼', 'Disneyland Resort', 'ディズニーランドリゾート', '디즈니랜드 리조트', 'Complexe Disneyland', 'Complejo Disneyland', '尖東', '尖东', 'East Tsim Sha Tsui', 'イースト・チムシャツイ', '이스트 침사추이', 'Tsim Sha Tsui Est', 'Tsim Sha Tsui Este', '粉嶺', '粉岭', 'Fanling', 'ファンリン', '판링', '火炭', 'Fo Tan', 'フォータン', '포탄', '炮台山', 'Fortress Hill', 'フォートレスヒル', '포트리스 힐', 'Colline de la Forteresse', 'Colina de la Fortaleza', '坑口', 'Hang Hau', 'ハンハウ', '항하우', '杏花邨', 'Heng Fa Chuen', 'ヘンファチュン', '헝파촌', '恆安', '恒安', 'Heng On', 'ヘンオン', '헝온', '紅磡', 'Hung Hom', 'フンホム', '훙험', '佐敦', 'Jordan', 'ジョーダン', '조던', '錦上路', '锦上路', 'Kam Sheung Road', 'カムシンロード', '캄셍 로드', 'Route Kam Sheung', 'Carretera Kam Sheung', '九龍', '九龙', 'Kowloon', 'クーロン', '구룡', '九龍灣', '九龙湾', 'Kowloon Bay', 'クーロンベイ', '구룡만', 'Baie de Kowloon', 'Bahía de Kowloon', '九龍塘', '九龙塘', 'Kowloon Tong', 'クーロントン', '구룡통', '葵芳', 'Kwai Fong', 'クワイフォン', '퀘이팡', '葵興', '葵兴', 'Kwai Hing', 'クワイヒン', '퀘이힝', '觀塘', '观塘', 'Kwun Tong', 'クーントン', '관통', '荔枝角', 'Lai Chi Kok', 'ライチコク', '라이치콕', '荔景', 'Lai King', 'ライキン', '라이킹', '藍田', '蓝田', 'Lam Tin', 'ラムティン', '람틴', '羅湖', '罗湖', 'Lo Wu', 'ロウー', '로우', '康城', 'LOHAS Park', 'ロハスパーク', '로하스 파크', 'Parc LOHAS', 'Parque LOHAS', '樂富', '乐富', 'Lok Fu', 'ロックフー', '록푸', '落馬洲', '落马洲', 'Lok Ma Chau', 'ロックマチャウ', '록마차우', '朗屏', 'Long Ping', 'ロンピン', '롱핑', '馬鞍山', '马鞍山', 'Ma On Shan', 'マーオンシャン', '마안산', '美孚', 'Mei Foo', 'メイフー', '메이푸', '旺角', 'Mong Kok', 'モンコク', '몽콕', '旺角東', '旺角东', 'Mong Kok East', 'モンコクイースト', '몽콕 이스트', 'Mong Kok Est', 'Mong Kok Este', '南昌', 'Nam Cheong', 'ナムチョン', '남창', '牛頭角', '牛头角', 'Ngau Tau Kok', 'ンガウタウコク', '우타우콕', '北角', 'North Point', 'ノースポイント', '노스 포인트', '奧運', '奥运', 'Olympic', 'オリンピック', '올림픽', 'Olympique', 'Olímpico', '寶琳', '宝琳', 'Po Lam', 'ポーラム', '보람', '太子', 'Prince Edward', 'プリンスエドワード', '프린스 에드워드', 'Prince Edward', 'Príncipe Eduardo', '鰂魚涌', '鲗鱼涌', 'Quarry Bay', 'クォリーベイ', '쿼리 베이', '馬場', '马场', 'Racecourse', 'レースコース', '레이스코스', 'Hippodrome', 'Hipódromo', '西灣河', '西湾河', 'Sai Wan Ho', 'サイワンホー', '사이완호', '沙田', 'Sha Tin', 'シャーティン', '사틴', '沙田圍', '沙田围', 'Sha Tin Wai', 'シャーティンウェイ', '사틴웨이', '深水埗', 'Sham Shui Po', 'シャムシュイポー', '삼수이보', '筲箕灣', '筲箕湾', 'Shau Kei Wan', 'シャウケイワン', '사우케이완', '石硤尾', '石硖尾', 'Shek Kip Mei', 'シェキップメイ', '석합미', '石門', '石门', 'Shek Mun', 'シェクムン', '석문', '上水', 'Sheung Shui', 'シェンシュイ', '상수', '上環', '上环', 'Sheung Wan', 'シェンワン', '상환', '兆康', 'Siu Hong', 'シウホン', '시오홍', '欣澳', 'Sunny Bay', 'サニーベイ', '써니 베이', 'Baie ensoleillée', 'Bahía Soleada', '太古', 'Tai Koo', 'タイクー', '타이쿠', '大埔墟', 'Tai Po Market', 'タイポーマーケット', '타이포 마켓', 'Marché de Tai Po', 'Mercado de Tai Po', '大水坑', 'Tai Shui Hang', 'タイシュイハン', '타이수이항', '大圍', '大围', 'Tai Wai', 'タイワイ', '타이와이', '太和', 'Tai Wo', 'タイウォ', '타이워', '大窩口', '大窝口', 'Tai Wo Hau', 'タイウォハウ', '타이워하우', '天后', 'Tin Hau', 'ティンハウ', '틴하우', '天水圍', '天水围', 'Tin Shui Wai', 'ティンシュイワイ', '틴수이와이', '調景嶺', '调景岭', 'Tiu Keng Leng', 'ティウキンレン', '티우깡링', '將軍澳', '将军澳', 'ツェンジンオー', '청관오', 'Tseung Kwan', '尖沙咀', 'Tsim Sha Tsui', 'チムシャツイ', '침사추이', '青衣', 'Tsing Yi', 'チンイー', '칭이', '荃灣', '荃湾', 'Tsuen Wan', 'ツェンワン', '츄완', '荃灣西', '荃湾西', 'Tsuen Wan West', 'ツェンワンウェスト', '츄완 웨스트', 'Tsuen Wan Ouest', 'Tsuen Wan Oeste', '屯門', '屯门', 'Tuen Mun', 'トゥエンムン', 'тун문', '東涌', '东涌', 'Tung Chung', 'トゥンチョン', '퉁충', '大學', '大学', 'University', 'ユニバーシティ', '대학', 'Université', 'Universidad', '灣仔', '湾仔', 'ワンチャイ', '완차이', 'Wan Chai', '黃大仙', '黄大仙', 'Wong Tai Sin', 'ウォンタイシン', '웡타이신', '烏溪沙', '乌溪沙', 'ウーカイシャー', '우카이사', 'Wu Kai Sha', '油麻地', 'ヤウマーテイ', '야우마티', 'Yau Ma Tei', '油塘', 'Yau Tong', 'ヤウトン', '야우통', 'Yau Tong', '元朗', 'ユンロン', '윈롱', 'Yuen Long']
     
     total_posts = 0
     prefiltered_posts = 0
@@ -248,9 +264,8 @@ if __name__ == "__main__":
     python TranSent_HK.py > data_filer_log.txt
     use absolute paths for multi-platform usage
     """
-    api_ls = [
 
-    ]
+    api_ls = read_api_keys_from_csv("/home/TransBert/Data/DeepSeek_API_Keys.csv")
     
     original_dir = "/home/TransBert/Data/Twitter_Hong Kong"
     prefiltered_dir = "/home/TransBert/prefiltered_results_HK"
@@ -268,7 +283,8 @@ if __name__ == "__main__":
     
     # Only proceed with LLM filtering if prefiltering found any relevant posts
     print(f"Start time for LLM data filtering: {prefilter_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-    datafilter(prefiltered_dir, cleaned_dir)
+
+    datafilter(prefiltered_dir, cleaned_dir, api_keys=api_ls)
     end_time = datetime.datetime.now()
 
     # Release model and GPU memory
