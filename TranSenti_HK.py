@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-import torch
 from ollama import chat
 from ollama import ChatResponse
 import os
 from pathlib import Path
-import numpy as np
 import datetime
 import pandas as pd
 """
@@ -135,26 +133,25 @@ def datafilter(directory, output_directory, batch_size=20):
         # Process in batches
         for i in range(0, len(valid_df), batch_size):
             batch_df = valid_df.iloc[i:i+batch_size]
-            batch_posts = batch_df['text'].tolist()
             
-            # Format batch posts with numbers
-            formatted_posts = "\n\n".join([f"Post {j+1}: {post}" for j, post in enumerate(batch_posts)])
+            # Format batch posts with original post_ids instead of sequential numbers
+            formatted_posts = "\n\n".join([f"Post {row['post_id']}: {row['text']}" for _, row in batch_df.iterrows()])
             
             print(f"Processing batch {i//batch_size + 1}/{(len(valid_df) + batch_size - 1)//batch_size}")
             
             response: ChatResponse = chat(model='deepseek-r1:32b', messages=[
                 {
                     'role': 'user',
-                    'content': f"""请评估以下{len(batch_posts)}个社交媒体post是否是对地铁公交服务质量、地铁公交环境相关的评价。
+                    'content': f"""请评估以下{len(batch_df)}个社交媒体post是否是对地铁公交服务质量、地铁公交环境相关的评价。
                     可能涉及到Reliability, Crowdedness, Comfort, Safety and security, Waiting conditions, Service facilities等方面。
                     请注意, 有些posts并非真正评价地铁服务或地铁系统, 可能只是提到了地铁、metro、subway等关键词。
 
                     {formatted_posts}
 
-                    请以JSON格式回答,每个post对应一个是或否的结论:
+                    请以JSON格式回答,每个post对应一个是或否的结论, 使用原始post ID:
                     {{
-                    "post1": "是/否",
-                    "post2": "是/否",
+                    "post[ID]": "是/否",
+                    "post[ID]": "是/否",
                     ...
                     }}
                     仅返回JSON格式,不需要其他解释。""",
@@ -163,28 +160,23 @@ def datafilter(directory, output_directory, batch_size=20):
 
             try:
                 response_text = response.message.content.strip()
+                print(f"Response text: {response_text}")
                 # Extract JSON part if there's explanatory text
                 if '{' in response_text and '}' in response_text:
                     json_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
-                    results = eval(json_str.replace('post1', '"post1"').replace('post2', '"post2"')
-                                   .replace('post3', '"post3"').replace('post4', '"post4"')
-                                   .replace('post5', '"post5"').replace('是', '"是"').replace('否', '"否"'))
+                    results = eval(json_str)
                     
                     # Process results
-                    for j, post_idx in enumerate(batch_df.index):
-                        post_key = f"post{j+1}"
+                    for j, (_, row) in enumerate(batch_df.iterrows()):
+                        post_key = f"post{row['post_id']}"
                         if post_key in results and results[post_key] == "是":
                             valid_post_counter += 1
-                            valid_posts.append(df.iloc[post_idx].to_dict())
-                            print(f"\033[1;32mPost {j+1} is related to transit service\033[0m")
-                        else:
-                            print(f"\033[1;31mPost {j+1} is NOT related to transit service\033[0m")
+                            valid_posts.append(df.loc[row.name].to_dict())
                 else:
-                    print(f"Invalid response format: {response_text}")
+                    print(f"Invalid response format")
                     
             except Exception as e:
                 print(f"Error processing batch response: {e}")
-                print(f"Response text: {response_text}")
 
         if valid_posts:
             output_df = pd.DataFrame(valid_posts)
@@ -197,7 +189,7 @@ if __name__ == "__main__":
     prxosy set
     screen -ls
     run 'ollama serve' in "screen" instance of terminal first
-    python TranSent_HK.py > data_filer_log.txt
+    python TranSenti_HK.py > data_filer_log.txt
     use absolute paths for multi-platform usage
     """
     
