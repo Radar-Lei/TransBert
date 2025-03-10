@@ -6,17 +6,7 @@ import datetime
 import pandas as pd
 import time
 import csv
-"""
-First manually download the model, the merge them into one .gguf file using:
-cat qwen2.5-32b-instruct-q4_k_m*.gguf > qwen2.5-32b-instruct-q4_k_m.gguf
-
-pip install gguf
-pip3 install sentencepiece
-pip install numpy==1.26.3
-
-pip proxy: proxy set
-"""
-
+import json
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, message="resource_tracker: There appear to be")
@@ -53,6 +43,7 @@ def read_api_keys_from_csv(filepath):
         print(f"Error reading CSV file: {e}")
         return []
 
+
 def keyword_prefilter(directory, output_directory):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
     
@@ -80,8 +71,10 @@ def keyword_prefilter(directory, output_directory):
         "トゥエンマーライン", "Línea Tuen Ma", "機場快線", "机场快线", "Airport Express", 
         "Express de l'aéroport", "エアポートエクスプレス", "Expreso del Aeropuerto",
 
+
         # HK station name list
-        '金鐘', '金钟', 'Admiralty', 'アドミラルティ', '애드미럴티', 'Amirauté', 'Almirantazgo', '機場', '机场', 'Airport', 'エアポート', '에어포트', 'Aéroport', 'Aeropuerto', '博覽館', '博览馆', 'AsiaWorld-Expo', 'アジアワールドエキスポ', '아시아월드엑스포', '柯士甸', 'Austin', 'オースティン', '오스틴', '銅鑼灣', '铜锣湾', 'Causeway Bay', 'コーズウェイ・ベイ', '코즈웨이 베이', '中環', '中环', 'Central', 'セントラル', '센트럴', '柴灣', '柴湾', 'Chai Wan', 'チャイワン', '차이완', '車公廟', '车公庙', 'Che Kung Temple', 'チェクンミャオ', '차공묘', 'Temple Che Kung', 'Templo de Che Kung', '長沙灣', '长沙湾', 'Cheung Sha Wan', 'チャンサーワン', '창사완', '彩虹', 'Choi Hung', 'チョイホン', '쵀이헝', '第一城', 'City One', 'シティワン', '시티원', 'Cité Un', 'Ciudad Uno', '鑽石山', '钻石山', 'Diamond Hill', 'ダイヤモンドヒル', '다이아몬드 힐', 'Diamond Hill', 'Colina del Diamante', '迪士尼', 'Disneyland Resort', 'ディズニーランドリゾート', '디즈니랜드 리조트', 'Complexe Disneyland', 'Complejo Disneyland', '尖東', '尖东', 'East Tsim Sha Tsui', 'イースト・チムシャツイ', '이스트 침사추이', 'Tsim Sha Tsui Est', 'Tsim Sha Tsui Este', '粉嶺', '粉岭', 'Fanling', 'ファンリン', '판링', '火炭', 'Fo Tan', 'フォータン', '포탄', '炮台山', 'Fortress Hill', 'フォートレスヒル', '포트리스 힐', 'Colline de la Forteresse', 'Colina de la Fortaleza', '坑口', 'Hang Hau', 'ハンハウ', '항하우', '杏花邨', 'Heng Fa Chuen', 'ヘンファチュン', '헝파촌', '恆安', '恒安', 'Heng On', 'ヘンオン', '헝온', '紅磡', 'Hung Hom', 'フンホム', '훙험', '佐敦', 'Jordan', 'ジョーダン', '조던', '錦上路', '锦上路', 'Kam Sheung Road', 'カムシンロード', '캄셍 로드', 'Route Kam Sheung', 'Carretera Kam Sheung', '九龍', '九龙', 'Kowloon', 'クーロン', '구룡', '九龍灣', '九龙湾', 'Kowloon Bay', 'クーロンベイ', '구룡만', 'Baie de Kowloon', 'Bahía de Kowloon', '九龍塘', '九龙塘', 'Kowloon Tong', 'クーロントン', '구룡통', '葵芳', 'Kwai Fong', 'クワイフォン', '퀘이팡', '葵興', '葵兴', 'Kwai Hing', 'クワイヒン', '퀘이힝', '觀塘', '观塘', 'Kwun Tong', 'クーントン', '관통', '荔枝角', 'Lai Chi Kok', 'ライチコク', '라이치콕', '荔景', 'Lai King', 'ライキン', '라이킹', '藍田', '蓝田', 'Lam Tin', 'ラムティン', '람틴', '羅湖', '罗湖', 'Lo Wu', 'ロウー', '로우', '康城', 'LOHAS Park', 'ロハスパーク', '로하스 파크', 'Parc LOHAS', 'Parque LOHAS', '樂富', '乐富', 'Lok Fu', 'ロックフー', '록푸', '落馬洲', '落马洲', 'Lok Ma Chau', 'ロックマチャウ', '록마차우', '朗屏', 'Long Ping', 'ロンピン', '롱핑', '馬鞍山', '马鞍山', 'Ma On Shan', 'マーオンシャン', '마안산', '美孚', 'Mei Foo', 'メイフー', '메이푸', '旺角', 'Mong Kok', 'モンコク', '몽콕', '旺角東', '旺角东', 'Mong Kok East', 'モンコクイースト', '몽콕 이스트', 'Mong Kok Est', 'Mong Kok Este', '南昌', 'Nam Cheong', 'ナムチョン', '남창', '牛頭角', '牛头角', 'Ngau Tau Kok', 'ンガウタウコク', '우타우콕', '北角', 'North Point', 'ノースポイント', '노스 포인트', '奧運', '奥运', 'Olympic', 'オリンピック', '올림픽', 'Olympique', 'Olímpico', '寶琳', '宝琳', 'Po Lam', 'ポーラム', '보람', '太子', 'Prince Edward', 'プリンスエドワード', '프린스 에드워드', 'Prince Edward', 'Príncipe Eduardo', '鰂魚涌', '鲗鱼涌', 'Quarry Bay', 'クォリーベイ', '쿼리 베이', '馬場', '马场', 'Racecourse', 'レースコース', '레이스코스', 'Hippodrome', 'Hipódromo', '西灣河', '西湾河', 'Sai Wan Ho', 'サイワンホー', '사이완호', '沙田', 'Sha Tin', 'シャーティン', '사틴', '沙田圍', '沙田围', 'Sha Tin Wai', 'シャーティンウェイ', '사틴웨이', '深水埗', 'Sham Shui Po', 'シャムシュイポー', '삼수이보', '筲箕灣', '筲箕湾', 'Shau Kei Wan', 'シャウケイワン', '사우케이완', '石硤尾', '石硖尾', 'Shek Kip Mei', 'シェキップメイ', '석합미', '石門', '石门', 'Shek Mun', 'シェクムン', '석문', '上水', 'Sheung Shui', 'シェンシュイ', '상수', '上環', '上环', 'Sheung Wan', 'シェンワン', '상환', '兆康', 'Siu Hong', 'シウホン', '시오홍', '欣澳', 'Sunny Bay', 'サニーベイ', '써니 베이', 'Baie ensoleillée', 'Bahía Soleada', '太古', 'Tai Koo', 'タイクー', '타이쿠', '大埔墟', 'Tai Po Market', 'タイポーマーケット', '타이포 마켓', 'Marché de Tai Po', 'Mercado de Tai Po', '大水坑', 'Tai Shui Hang', 'タイシュイハン', '타이수이항', '大圍', '大围', 'Tai Wai', 'タイワイ', '타이와이', '太和', 'Tai Wo', 'タイウォ', '타이워', '大窩口', '大窝口', 'Tai Wo Hau', 'タイウォハウ', '타이워하우', '天后', 'Tin Hau', 'ティンハウ', '틴하우', '天水圍', '天水围', 'Tin Shui Wai', 'ティンシュイワイ', '틴수이와이', '調景嶺', '调景岭', 'Tiu Keng Leng', 'ティウキンレン', '티우깡링', '將軍澳', '将军澳', 'ツェンジンオー', '청관오', 'Tseung Kwan', '尖沙咀', 'Tsim Sha Tsui', 'チムシャツイ', '침사추이', '青衣', 'Tsing Yi', 'チンイー', '칭이', '荃灣', '荃湾', 'Tsuen Wan', 'ツェンワン', '츄완', '荃灣西', '荃湾西', 'Tsuen Wan West', 'ツェンワンウェスト', '츄완 웨스트', 'Tsuen Wan Ouest', 'Tsuen Wan Oeste', '屯門', '屯门', 'Tuen Mun', 'トゥエンムン', 'тун문', '東涌', '东涌', 'Tung Chung', 'トゥンチョン', '퉁충', '大學', '大学', 'University', 'ユニバーシティ', '대학', 'Université', 'Universidad', '灣仔', '湾仔', 'ワンチャイ', '완차이', 'Wan Chai', '黃大仙', '黄大仙', 'Wong Tai Sin', 'ウォンタイシン', '웡타이신', '烏溪沙', '乌溪沙', 'ウーカイシャー', '우카이사', 'Wu Kai Sha', '油麻地', 'ヤウマーテイ', '야우마티', 'Yau Ma Tei', '油塘', 'Yau Tong', 'ヤウトン', '야우통', 'Yau Tong', '元朗', 'ユンロン', '윈롱', 'Yuen Long']
+        '金鐘', '金钟', 'Admiralty', 'アドミラルティ', '애드미럴티', 'Amirauté', 'Almirantazgo', '機場', '机场', 'Airport', 'エアポート', '에어포트', 'Aéroport', 'Aeropuerto', '博覽館', '博览馆', 'AsiaWorld-Expo', 'アジアワールドエキスポ', '아시아월드엑스포', '柯士甸', 'Austin', 'オースティン', '오스틴', '銅鑼灣', '铜锣湾', 'Causeway Bay', 'コーズウェイ・ベイ', '코즈웨이 베이', '中環', '中环', 'Central', 'セントラル', '센트럴', '柴灣', '柴湾', 'Chai Wan', 'チャイワン', '차이완', '車公廟', '车公庙', 'Che Kung Temple', 'チェクンミャオ', '차공묘', 'Temple Che Kung', 'Templo de Che Kung', '長沙灣', '长沙湾', 'Cheung Sha Wan', 'チャンサーワン', '창사완', '彩虹', 'Choi Hung', 'チョイホン', '쵀이헝', '第一城', 'City One', 'シティワン', '시티원', 'Cité Un', 'Ciudad Uno', '鑽石山', '钻石山', 'Diamond Hill', 'ダイヤモンドヒル', '다이아몬드 힐', 'Diamond Hill', 'Colina del Diamante', '迪士尼', 'Disneyland Resort', 'ディズニーランドリゾート', '디즈니랜드 리조트', 'Complexe Disneyland', 'Complejo Disneyland', '尖東', '尖东', 'East Tsim Sha Tsui', 'イースト・チムシャツイ', '이스트 침사추이', 'Tsim Sha Tsui Est', 'Tsim Sha Tsui Este', '粉嶺', '粉岭', 'Fanling', 'ファンリン', '판링', '火炭', 'Fo Tan', 'フォータン', '포탄', '炮台山', 'Fortress Hill', 'フォートレスヒル', '포트리스 힐', 'Colline de la Forteresse', 'Colina de la Fortaleza', '坑口', 'Hang Hau', 'ハンハウ', '항하우', '杏花邨', 'Heng Fa Chuen', 'ヘンファチュン', '헝파촌', '恆安', '恒安', 'Heng On', 'ヘンオン', '헝온', '紅磡', 'Hung Hom', 'フンホム', '훙험', '佐敦', 'Jordan', 'ジョーダン', '조던', '錦上路', '锦上路', 'Kam Sheung Road', 'カムシンロード', '캄셍 로드', 'Route Kam Sheung', 'Carretera Kam Sheung', '九龍', '九龙', 'Kowloon', 'クーロン', '구룡', '九龍灣', '九龙湾', 'Kowloon Bay', 'クーロンベイ', '구룡만', 'Baie de Kowloon', 'Bahía de Kowloon', '九龍塘', '九龙塘', 'Kowloon Tong', 'クーロントン', '구룡통', '葵芳', 'Kwai Fong', 'クワイフォン', '퀘이팡', '葵興', '葵兴', 'Kwai Hing', 'クワイヒン', '퀘이힝', '觀塘', '观塘', 'Kwun Tong', 'クーントン', '관통', '荔枝角', 'Lai Chi Kok', 'ライチコク', '라이치콕', '荔景', 'Lai King', 'ライキン', '라이킹', '藍田', '蓝田', 'Lam Tin', 'ラムティン', '람틴', '羅湖', '罗湖', 'Lo Wu', 'ロウー', '로우', '康城', 'LOHAS Park', 'ロハスパーク', '로하스 파크', 'Parc LOHAS', 'Parque LOHAS', '樂富', '乐富', 'Lok Fu', 'ロックフー', '록푸', '落馬洲', '落马洲', 'Lok Ma Chau', 'ロックマチャウ', '록마차우', '朗屏', 'Long Ping', 'ロンピン', '롱핑', '馬鞍山', '马鞍山', 'Ma On Shan', 'マーオンシャン', '마안산', '美孚', 'Mei Foo', 'メイフー', '메이푸', '旺角', 'Mong Kok', 'モンコク', '몽콕', '旺角東', '旺角东', 'Mong Kok East', 'モンコクイースト', '몽콕 이스트', 'Mong Kok Est', 'Mong Kok Este', '南昌', 'Nam Cheong', 'ナムチョン', '남창', '牛頭角', '牛头角', 'Ngau Tau Kok', 'ンガウタウコク', '우타우콕', '北角', 'North Point', 'ノースポイント', '노스 포인트', '奧運', '奥运', 'Olympic', 'オリンピック', '올림픽', 'Olympique', 'Olímpico', '寶琳', '宝琳', 'Po Lam', 'ポーラム', '보람', '太子', 'Prince Edward', 'プリンスエドワード', '프린스 에드워드', 'Prince Edward', 'Príncipe Eduardo', '鰂魚涌', '鲗鱼涌', 'Quarry Bay', 'クォリーベイ', '쿼리 베이', '馬場', '马场', 'Racecourse', 'レースコース', '레이스코스', 'Hippodrome', 'Hipódromo', '西灣河', '西湾河', 'Sai Wan Ho', 'サイワンホー', '사이완호', '沙田', 'Sha Tin', 'シャーティン', '사틴', '沙田圍', '沙田围', 'Sha Tin Wai', 'シャーティンウェイ', '사틴웨이', '深水埗', 'Sham Shui Po', 'シャムシュイポー', '삼수이보', '筲箕灣', '筲箕湾', 'Shau Kei Wan', 'シャウケイワン', '사우케이완', '石硤尾', '石硖尾', 'Shek Kip Mei', 'シェキップメイ', '석합미', '石門', '石门', 'Shek Mun', 'シェクムン', '석문', '上水', 'Sheung Shui', 'シェンシュイ', '상수', '上環', '上环', 'Sheung Wan', 'シェンワン', '상환', '兆康', 'Siu Hong', 'シウホン', '시오홍', '欣澳', 'Sunny Bay', 'サニーベイ', '써니 베이', 'Baie ensoleillée', 'Bahía Soleada', '太古', 'Tai Koo', 'タイクー', '타이쿠', '大埔墟', 'Tai Po Market', 'タイポーマーケット', '타이포 마켓', 'Marché de Tai Po', 'Mercado de Tai Po', '大水坑', 'Tai Shui Hang', 'タイシュイハン', '타이수이항', '大圍', '大围', 'Tai Wai', 'タイワイ', '타이와이', '太和', 'Tai Wo', 'タイウォ', '타이워', '大窩口', '大窝口', 'Tai Wo Hau', 'タイウォハウ', '타이워하우', '天后', 'Tin Hau', 'ティンハウ', '틴하우', '天水圍', '天水围', 'Tin Shui Wai', 'ティンシュイワイ', '틴수이와이', '調景嶺', '调景岭', 'Tiu Keng Leng', 'ティウキンレン', '티우깡링', '將軍澳', '将军澳', 'ツェンジンオー', '청관오', 'Tseung Kwan', '尖沙咀', 'Tsim Sha Tsui', 'チムシャツイ', '침사추이', '青衣', 'Tsing Yi', 'チンイー', '칭이', '荃灣', '荃湾', 'Tsuen Wan', 'ツェンワン', '츄완', '荃灣西', '荃湾西', 'Tsuen Wan West', 'ツェンワンウェスト', '츄완 웨스트', 'Tsuen Wan Ouest', 'Tsuen Wan Oeste', '屯門', '屯门', 'Tuen Mun', 'トゥエンムン', 'тун문', '東涌', '东涌', 'Tung Chung', 'トゥンチョン', '퉁충', '大學', '大学', 'University', 'ユニバーシティ', '대학', 'Université', 'Universidad', '灣仔', '湾仔', 'ワンチャイ', '완차이', 'Wan Chai', '黃大仙', '黄大仙', 'Wong Tai Sin', 'ウォンタイシン', '웡타이신', '烏溪沙', '乌溪沙', 'ウーカイシャー', '우카이사', 'Wu Kai Sha', '油麻地', 'ヤウマーテイ', '야우마티', 'Yau Ma Tei', '油塘', 'Yau Tong', 'ヤウトン', '야우통', 'Yau Tong', '元朗', 'ユンロン', '윈롱', 'Yuen Long',
+    ]
     
     total_posts = 0
     prefiltered_posts = 0
@@ -127,14 +120,22 @@ def keyword_prefilter(directory, output_directory):
     return prefiltered_posts > 0  # Return True if any posts were prefiltered
 
 
-
-def datafilter(directory, output_directory, api_keys=None):
+def datafilter(directory, output_directory, api_keys=None, batch_size=20, mini_batch_size=5):
     """
     Filter data using parallel processing with multiple API keys.
-    Each CSV file is split into chunks and processed in parallel.
+    Each CSV file is split into batches and processed in parallel.
+    
+    Args:
+        directory: Directory containing prefiltered CSV files
+        output_directory: Directory to save cleaned CSV files
+        api_keys: List of API keys to use
+        batch_size: Size of batches to split each CSV file into
+        mini_batch_size: Number of posts to process in a single API call
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import math
+    import json
+    import time
     
     Path(output_directory).mkdir(parents=True, exist_ok=True)
     
@@ -145,65 +146,91 @@ def datafilter(directory, output_directory, api_keys=None):
     total_post_counter = 0
     valid_post_counter = 0
     
-    def process_chunk(chunk_df, api_key):
-        """Process a chunk of data using the specified API key"""
+    def process_batch(batch_df, api_key):
+        """Process a batch of data using the specified API key"""
         client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-        chunk_valid_posts = []
+        batch_valid_posts = []
         
-        for _, row in chunk_df.iterrows():
-            each_post = row['text']
-            if type(each_post) != str:
-                continue
-            if len(each_post) > 512:
-                continue
-                
+        # Process in mini-batches for better efficiency
+        for i in range(0, len(batch_df), mini_batch_size):
+            mini_batch = batch_df.iloc[i:i+mini_batch_size]
+            
+            # Format batch posts with original post_ids
+            formatted_posts = "\n\n".join([f"Post {row['post_id']}: {row['text']}" 
+                                          for _, row in mini_batch.iterrows()])
+            
             try:
                 response = client.chat.completions.create(
                     model="deepseek-reasoner",
                     messages=[
-                        {"role": "system", "content": "You are a data filter"},
-                        {"role": "user", "content": f"以下用户社交媒体发表的post是否是乘客对地铁公交服务质量、地铁公交环境相关的评价, 可能涉及到Reliability, Crowdedness, Comfort, Safety and securit, Waiting conditions, Service facilities等方面, 只回答'是'或'否', 不要回答你的分析内容。注意有些posts并非是真正的评价地铁服务地铁系统, 有可能只是提到了地铁, metro, subway等关键词 : {each_post}"},
+                        {"role": "system", "content": "You are a data filter for transit service posts"},
+                        {"role": "user", "content": f"""请评估以下{len(mini_batch)}个社交媒体post是否是对地铁公交服务质量、地铁公交环境相关的评价。
+                        可能涉及到Reliability, Crowdedness, Comfort, Safety and security, Waiting conditions, Service facilities等方面。
+                        请注意, 有些posts并非真正评价地铁服务或地铁系统, 可能只是提到了地铁、metro、subway等关键词。
+
+                        {formatted_posts}
+
+                        请以JSON格式回答,每个post对应一个是或否的结论, 使用原始post ID:
+                        {{
+                        "post[ID]": "是/否",
+                        "post[ID]": "是/否",
+                        ...
+                        }}
+                        仅返回JSON格式"""},
                     ],
                     stream=False
                 )
                 
-                print(f"\033[1;33m{each_post}\033[0m")
-                
                 response_text = response.choices[0].message.content.strip()
-                if '\n</think>\n\n' in response_text:
-                    response_text = response_text.split('\n</think>\n\n')[-1]
+                print(f"Response text: {response_text}")
                 
-                if any(word in response_text for word in ['是', '对', 'yes', '确实']):
-                    chunk_valid_posts.append(row.to_dict())
-                print(f"is related to transit service: {response_text}")
-                
+                # Extract JSON part if there's explanatory text
+                if '{' in response_text and '}' in response_text:
+                    json_str = response_text[response_text.find('{'):response_text.rfind('}')+1]
+                    try:
+                        # Try standard JSON parsing first
+                        results = json.loads(json_str)
+                    except:
+                        # Fall back to eval if JSON parsing fails
+                        results = eval(json_str)
+                    
+                    # Process results
+                    for _, row in mini_batch.iterrows():
+                        post_key = f"post{row['post_id']}"
+                        if post_key in results and results[post_key] in ["是", "对", "yes", "Yes", "是的"]:
+                            batch_valid_posts.append(row.to_dict())
+                else:
+                    print(f"Invalid response format for mini-batch")
+                    
             except Exception as e:
-                print(f"Error processing with API key {api_key}: {e}")
+                print(f"Error processing mini-batch with API key {api_key}: {e}")
                 # If rate limited or other API error, sleep and try again
                 if "rate" in str(e).lower() or "limit" in str(e).lower():
                     time.sleep(5)
                     try:
-                        # Try one more time
-                        response = client.chat.completions.create(
-                            model="deepseek-reasoner",
-                            messages=[
-                                {"role": "system", "content": "You are a data filter"},
-                                {"role": "user", "content": f"以下用户社交媒体发表的post是否是乘客对地铁公交服务质量、地铁公交环境相关的评价, 可能涉及到Reliability, Crowdedness, Comfort, Safety and securit, Waiting conditions, Service facilities, travel experience, travel time等方面, 只回答'是'或'否', 不要回答你的分析内容。注意有些posts并非是真正的评价地铁服务地铁系统, 有可能只是提到了地铁, metro, subway等关键词 : {each_post}"},
-                            ],
-                            stream=False
-                        )
-                        
-                        response_text = response.choices[0].message.content.strip()
-                        if '\n</think>\n\n' in response_text:
-                            response_text = response_text.split('\n</think>\n\n')[-1]
-                        
-                        if any(word in response_text for word in ['是', '对', 'yes', '确实']):
-                            chunk_valid_posts.append(row.to_dict())
-                        print(f"Retry successful: {response_text}")
+                        # Try one more time with another approach - asking about individual posts
+                        for _, row in mini_batch.iterrows():
+                            try:
+                                post_text = row['text']
+                                response = client.chat.completions.create(
+                                    model="deepseek-reasoner",
+                                    messages=[
+                                        {"role": "system", "content": "You are a data filter"},
+                                        {"role": "user", "content": f"以下用户社交媒体发表的post是否是乘客对地铁公交服务质量、地铁公交环境相关的评价, 可能涉及到Reliability, Crowdedness, Comfort, Safety and security, Waiting conditions, Service facilities等方面, 只回答'是'或'否', 不要回答你的分析内容。注意有些posts并非是真正的评价地铁服务地铁系统, 有可能只是提到了地铁, metro, subway等关键词 : {post_text}"},
+                                    ],
+                                    stream=False
+                                )
+                                
+                                result = response.choices[0].message.content.strip()
+                                if any(word in result for word in ['是', '对', 'yes', 'Yes', '确实']):
+                                    batch_valid_posts.append(row.to_dict())
+                            except:
+                                # Skip this post if retry also fails
+                                pass
                     except:
-                        print("Retry failed")
+                        print("Retry failed completely")
                         
-        return chunk_valid_posts
+        return batch_valid_posts
     
     for csv_file in Path(directory).glob('*.csv'):
         output_filename = f"cleaned_{csv_file.name}"
@@ -219,18 +246,20 @@ def datafilter(directory, output_directory, api_keys=None):
             print(f"Total rows in {csv_file.name}: {len(df)}")
             total_post_counter += len(df)
             
-            # Split dataframe into chunks based on number of API keys available
-            num_chunks = min(len(api_keys), max(1, len(df) // 20))  # At least 1 chunk, max 50 rows per API key
-            chunk_size = math.ceil(len(df) / num_chunks)
-            chunks = [df.iloc[i:i+chunk_size] for i in range(0, len(df), chunk_size)]
+            # Filter out posts that are not strings or too long
+            valid_df = df[df['text'].apply(lambda x: isinstance(x, str) and len(x) <= 512)].copy()
             
-            print(f"Processing {len(df)} rows in {len(chunks)} chunks using {min(len(api_keys), len(chunks))} API keys")
+            # Split dataframe into batches based on batch_size
+            chunks = [valid_df.iloc[i:i+batch_size] for i in range(0, len(valid_df), batch_size)]
+            num_api_keys = len(api_keys)
             
-            # Process chunks in parallel
+            print(f"Processing {len(valid_df)} rows in {len(chunks)} batches using {min(num_api_keys, len(chunks))} API keys")
+            
+            # Process batches in parallel
             valid_posts = []
-            with ThreadPoolExecutor(max_workers=min(len(api_keys), len(chunks))) as executor:
+            with ThreadPoolExecutor(max_workers=min(num_api_keys, len(chunks))) as executor:
                 future_to_chunk = {
-                    executor.submit(process_chunk, chunk, api_keys[i % len(api_keys)]): i 
+                    executor.submit(process_batch, chunk, api_keys[i % num_api_keys]): i 
                     for i, chunk in enumerate(chunks)
                 }
                 
@@ -239,9 +268,9 @@ def datafilter(directory, output_directory, api_keys=None):
                     try:
                         chunk_valid_posts = future.result()
                         valid_posts.extend(chunk_valid_posts)
-                        print(f"Chunk {chunk_index+1}/{len(chunks)} completed with {len(chunk_valid_posts)} valid posts")
+                        print(f"Batch {chunk_index+1}/{len(chunks)} completed with {len(chunk_valid_posts)} valid posts")
                     except Exception as exc:
-                        print(f"Chunk {chunk_index+1} generated an exception: {exc}")
+                        print(f"Batch {chunk_index+1} generated an exception: {exc}")
             
             valid_post_counter += len(valid_posts)
             
@@ -256,15 +285,14 @@ def datafilter(directory, output_directory, api_keys=None):
     print(f"\nSaved \033[1;33m{valid_post_counter}\033[0m filtered posts out of \033[1;33m{total_post_counter}\033[0m total posts.")
     return valid_post_counter > 0
 
+
 if __name__ == "__main__":
     """
-    prxosy set
-    screen -ls
-    run 'ollama serve' in "screen" instance of terminal first
-    python TranSent_HK.py > data_filer_log.txt
+    python TranSenti_HK.py > data_filer_log.txt
     use absolute paths for multi-platform usage
     """
-
+    
+    # Read API keys from CSV file
     api_ls = read_api_keys_from_csv("Data/DeepSeek_keys.csv")
     
     original_dir = "Data/Twitter_Hong Kong"
@@ -283,18 +311,18 @@ if __name__ == "__main__":
     
     # Only proceed with LLM filtering if prefiltering found any relevant posts
     print(f"Start time for LLM data filtering: {prefilter_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    datafilter(prefiltered_dir, cleaned_dir, api_keys=api_ls)
+    
+    # Control parameters:
+    # batch_size: Number of posts to process with each API key
+    # mini_batch_size: Number of posts to include in each API request
+    datafilter(prefiltered_dir, cleaned_dir, api_keys=api_ls, batch_size=90, mini_batch_size=30)
+    
     end_time = datetime.datetime.now()
-
-    # Release model and GPU memory
-    # os.system("ollama stop deepseek-r1:32b")
     print(f"End time for data cleaning: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
     time_used = (end_time - prefilter_end_time).total_seconds() / 60
     print(f"Time used for LLM data filtering: {time_used:.2f} minutes")
     total_time = (end_time - start_time).total_seconds() / 60
     print(f"Total processing time: {total_time:.2f} minutes")
-
     
     # print(f"Start time for sentiment analysis: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     # sentiment_evaluation(cleaned_dir, sentiment_dir)
