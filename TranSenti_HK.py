@@ -141,7 +141,8 @@ def datafilter(directory, output_directory, batch_size=20):
 
             # Split the DataFrame into chunks and save to temporary files
             chunk_size = 100  # Adjust chunk size as needed
-            for i, chunk in enumerate(np.array_split(df, len(df) // chunk_size + 1)):
+            # Create chunks using pandas-friendly method instead of numpy array_split
+            for i, (_, chunk) in enumerate(df.groupby(np.arange(len(df)) // chunk_size)):
                 chunk.to_csv(tmp_input_dir / f"chunk_{i}.csv", index=False, encoding='utf-8-sig')
 
             # Process each chunk
@@ -173,8 +174,8 @@ def datafilter(directory, output_directory, batch_size=20):
                         response: ChatResponse = chat(model='deepseek-r1:32b', messages=[
                             {
                                 'role': 'user',
-                                'content': f"""请评估以下{len(batch_df)}个社交媒体post是否是对地铁公交服务质量、地铁公交环境相关的评价。
-                                可能涉及到Reliability, Crowdedness, Comfort, Safety and security, Waiting conditions, Service facilities, travel experience等方面。
+                                'content': f"""请评估以下{len(batch_df)}个社交媒体post是否是对地铁服务质量、地铁环境相关的评价。
+                                可能涉及到地铁的Reliability, Crowdedness, Comfort, Safety and security, Waiting conditions, Service facilities, travel experience等地铁评价方面。
                                 请注意, 有些posts并非真正评价地铁服务或地铁系统, 可能只是提到了地铁、metro、subway等关键词。
 
                                 {formatted_posts}
@@ -217,7 +218,7 @@ def datafilter(directory, output_directory, batch_size=20):
                     output_chunk_df.to_csv(tmp_output_dir / f"processed_{chunk_file.name}", index=False, encoding='utf-8-sig')
 
             # Merge processed chunks
-            processed_chunk_files = sorted(tmp_output_dir.glob('processed_chunk_*.csv'), key=lambda x: int(x.stem.split('_')[1].split('.')[0]))
+            processed_chunk_files = sorted(tmp_output_dir.glob('processed_chunk_*.csv'), key=lambda x: int(x.stem.split('_')[2].split('.')[0]))
             if processed_chunk_files:
                 merged_df = pd.concat([pd.read_csv(f) for f in processed_chunk_files])
                 merged_df.to_csv(output_path, index=False, encoding='utf-8-sig')
@@ -243,7 +244,7 @@ if __name__ == "__main__":
     screen -ls
     "OLLAMA_SCHED_SPREAD=1 ollama serve"
     conda activate rag
-    python TranSenti_HK.py >> data_filer_log_2.txt
+    python TranSenti_HK.py > data_filer_log_3.txt
     use absolute paths for multi-platform usage
     """
     
@@ -256,7 +257,7 @@ if __name__ == "__main__":
     print(f"Start time for data prefiltering: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # First apply keyword-based prefiltering
-    has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
+    # has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
     prefilter_end_time = datetime.datetime.now()
     time_used = (prefilter_end_time - start_time).total_seconds() / 60
     print(f"Time used for data prefiltering: {time_used:.2f} minutes")

@@ -64,7 +64,7 @@ def datafilter(directory, output_directory, batch_size=20, model_name='deepseek-
 
             # Split the DataFrame into chunks and save to temporary files
             chunk_size = 100  # Adjust chunk size as needed
-            for i, chunk in enumerate(np.array_split(df, len(df) // chunk_size + 1)):
+            for i, (_, chunk) in enumerate(df.groupby(np.arange(len(df)) // chunk_size)):
                 chunk.to_csv(tmp_input_dir / f"chunk_{i}.csv", index=False, encoding='utf-8-sig')
 
             # Process each chunk
@@ -140,7 +140,7 @@ def datafilter(directory, output_directory, batch_size=20, model_name='deepseek-
                     output_chunk_df.to_csv(tmp_output_dir / f"processed_{chunk_file.name}", index=False, encoding='utf-8-sig')
 
             # Merge processed chunks
-            processed_chunk_files = sorted(tmp_output_dir.glob('processed_chunk_*.csv'), key=lambda x: int(x.stem.split('_')[1].split('.')[0]))
+            processed_chunk_files = sorted(tmp_output_dir.glob('processed_chunk_*.csv'), key=lambda x: int(x.stem.split('_')[2].split('.')[0]))
             if processed_chunk_files:
                 merged_df = pd.concat([pd.read_csv(f) for f in processed_chunk_files])
                 merged_df.to_csv(output_path, index=False, encoding='utf-8-sig')
