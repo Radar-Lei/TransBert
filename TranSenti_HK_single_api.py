@@ -100,7 +100,7 @@ def keyword_prefilter(directory, output_directory):
     return prefiltered_posts > 0  # Return True if any posts were prefiltered
 
 
-def datafilter(directory, output_directory, batch_size=50):
+def datafilter(directory, output_directory, batch_size=20):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
 
     total_post_counter = 0

@@ -240,8 +240,9 @@ import numpy as np  # Import numpy
 
 if __name__ == "__main__":
     """
-    prxosy set
+    proxy set
     screen -ls
+    conda activate TransBert
     "OLLAMA_SCHED_SPREAD=1 ollama serve"
     conda activate rag
     python TranSenti_HK.py > data_filer_log_3.txt
@@ -257,7 +258,7 @@ if __name__ == "__main__":
     print(f"Start time for data prefiltering: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     # First apply keyword-based prefiltering
-    # has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
+    has_prefiltered_data = keyword_prefilter(original_dir, prefiltered_dir)
     prefilter_end_time = datetime.datetime.now()
     time_used = (prefilter_end_time - start_time).total_seconds() / 60
     print(f"Time used for data prefiltering: {time_used:.2f} minutes")
