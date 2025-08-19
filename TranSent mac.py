@@ -134,8 +134,8 @@ if __name__ == "__main__":
     """
         # use absolute paths for multi-platform usage
     original_dir = "/Users/leida/TransBert/Data/Shenzhen"
-    cleaned_dir = "/Users/leida/TransBert/cleaned_results"
-    sentiment_dir = "/Users/leida/TransBert/senti_results"
+    cleaned_dir = "/Users/leida/TransBert/cleaned_results_SZ"
+    sentiment_dir = "/Users/leida/TransBert/senti_results_SZ"
 
     start_time = datetime.datetime.now()
     print(f"Start time for data cleaning: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
