@@ -454,11 +454,11 @@ Performance is evaluated using a test dataset that is manually annotated with gr
 % In the following sections, we explore the specifics of the outcomes associated with the two primary stages of our proposed framework.
 
 \subsection{Results of passenger feedback filtering}
-This subsection presents our proposed hybrid filtering method to find passenger feedback that is truly related to transit service from social media data. Of the entire dataset comprising 512,738 samples, our filtering method identified 116,506 as transit-related posts. 
+This subsection presents our proposed hybrid filtering method to find passenger feedback that is truly related to transit service from social media data. As shown in \hyperref[fig:filtering_results]{Fig.~\ref{fig:filtering_results}(a)}, our filtering method identified 116,506 as transit-related posts out of the entire dataset comprising 512,738 samples. \hyperref[fig:filtering_results]{Fig.~\ref{fig:filtering_results}(b)} shows a word cloud map showing the most frequently mentioned topics in the filtered dataset of the identified transit-related posts, classified according to different service dimensions.
 
 \begin{figure}[!ht]
 \centering
-\begin{subfigure}[b]{0.48\textwidth}
+\begin{subfigure}[b]{0.4\textwidth}
     \centering
     \includegraphics[width=\textwidth]{figs/filtering_results_pie_chart.pdf}
     \caption{Transit-related vs Non-transit posts}
@@ -475,9 +475,7 @@ This subsection presents our proposed hybrid filtering method to find passenger 
 \label{fig:filtering_results}
 \end{figure}
 
-
-
-To evaluate the actual performance of our filtering model against traditional keyword-based methods and several LLM baselines, we use a manually annotated subset of 1,000 samples from the whole dataset. The numbers of true positives (i.e., posts correctly identified as transit-related), true negatives (posts correctly identified as non-transit-related), false positives , and false negatives, as shown in Figure,  are then conunted to compute the evaluation metrics to assess model performance.
+To evaluate the actual performance of our filtering model against traditional keyword-based methods and several LLM baselines, we use a manually annotated subset of 1,000 samples from the whole dataset. The numbers of true positives (i.e., posts correctly identified as transit-related), true negatives (i.e., posts correctly identified as non-transit-related), false positives , and false negatives, as shown in Figure,  are then conunted to compute the evaluation metrics to assess model performance.
 
 \subsubsection{Comparison with individual baselines}
 
