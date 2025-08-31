@@ -1,0 +1,534 @@
+%\documentclass[a4paper,fleqn,longmktitle]{cas-sc}
+\documentclass[a4paper,fleqn,12pt]{cas-sc}
+
+%\usepackage[numbers]{natbib}
+%\usepackage[authoryear]{natbib}
+% \usepackage[authoryear,longnamesfirst]{natbib}
+\usepackage[authoryear]{natbib}
+\usepackage{tcolorbox}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{xcolor}   
+\newcommand{\rev}[1]{{\color{red} #1}} 
+
+\usepackage[linesnumbered, ruled]{algorithm2e}
+\SetKwRepeat{Do}{do}{while}%
+\newcommand\mycommfont[1]{\footnotesize\ttfamily\textcolor{blue}{#1}}
+\SetCommentSty{mycommfont}
+
+\usepackage{amssymb} % for empty set
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage[flushleft]{threeparttable}
+% \usepackage{placeins}
+\usepackage{tabularray} % for better
+\usepackage[subsection]{placeins}
+
+\frenchspacing % for consistent spacing between sentences
+
+\newcommand{\killpunct}[1]{} % for reference, remove the comma in the reference of Proceeding
+
+\usepackage{caption}
+\DeclareCaptionFont{mysize}{\fontsize{12}{9.6}\selectfont}
+\captionsetup{font=mysize}
+
+\usepackage{subcaption}
+
+\usepackage{tabularray}
+
+\usepackage{etoolbox}
+
+% Modify font size of the bibliography
+\apptocmd{\thebibliography}{\fontsize{10}{14}\selectfont}{}{}
+
+\usepackage{capt-of}
+
+\usepackage{lineno}
+
+\usepackage{titlesec}
+\titleformat*{\section}{\fontsize{12}{20}\selectfont\bfseries}
+
+\usepackage{titlesec}
+\titleformat*{\subsection}{\fontsize{12}{20}\selectfont\bfseries}
+
+\SetKwInput{KwData}{Input}
+\SetKwInput{KwResult}{Output}
+
+% \usepackage[indent=15pt]{parskip}
+
+\usepackage{diagbox}
+% centering figure and table captions
+
+%%%Author macros
+\def\tsc#1{\csdef{#1}{\textsc{\lowercase{#1}}\xspace}}
+\tsc{WGM}
+\tsc{QE}
+\tsc{EP}
+\tsc{PMS}
+\tsc{BEC}
+\tsc{DE}
+%%%
+
+\begin{document}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+\shorttitle{Preprint submitted to \textit{Transportation Research Part C: Emerging Technologies}}
+% \shortauthors{Lei et~al.}
+%\begin{frontmatter}
+
+\title [mode = title]{A conditional diffusion model for probabilistic estimation of traffic states at sensor-free locations}   
+
+\author[1]{Da Lei}[%
+]
+
+\address[1]{Department of Logistics and Maritime Studies, Faculty of Business, The Hong Kong Polytechnic University, Hung Hom, Hong Kong}
+\address[2]{Department of Industrial and Systems Engineering, The Hong Kong Polytechnic University, Hung Hom, Hong Kong}
+
+
+\author[2]{Min Xu}[%
+]
+\cormark[1]
+
+\author[1]{Shuaian Wang}[%
+]
+
+\cortext[cor1]{Corresponding author}
+
+
+\begin{abstract}
+Transportation administrators and urban planners rely on accurate network-wide traffic state estimation to make well-informed decisions. However, due to insufficient sensor coverage, traffic state estimation at sensor-free locations (TSES) poses significant challenges for downstream network-wide traffic analysis. This is because direct observations are not available at these sensor-free locations. Most existing traffic state estimation (TSE) research focuses on inferring several unknown time points based on observed historical data using deterministic models. \rev{In contrast, TSES is to infer the entire unknown traffic time series of a given sensor-free node, thereby presenting high predictive difficulty, as we could not learn any historical traffic patterns locally.} In this study, we introduce a novel probabilistic model---the conditional diffusion framework with spatio-temporal estimator (CDSTE)---to tackle the TSES problem. When dealing with TSES, deterministic models can only produce point value estimates, which may substantially deviate from the actual traffic states of sensor-free locations. To mitigate this, the proposed CDSTE integrates the conditional diffusion framework with cutting-edge spatio-temporal networks to extract the underlying dependencies in traffic states between sensor-free and sensor-equipped nodes. \rev{This integration enables reliable probabilistic traffic state estimations for sensor-free locations, which can be used to quantify the variability of estimations in TSES to support flexible and robust decision-making processes for traffic management and control.} Extensive numerical experiments on real-world datasets demonstrate the superior performance of CDSTE for TSES over five widely-used baseline models.
+\end{abstract}
+
+\begin{keywords}
+conditional diffusion model \sep probabilistic estimation \sep network-wide estimation \sep insufficient sensor coverage \sep spatio-temporal estimator
+\end{keywords}
+
+
+\maketitle
+\setlength{\parindent}{15pt}
+\setlength{\parskip}{0.1in}
+\linenumbers
+
+\section{Introduction}\label{sec:introduction}
+Transportation administrators and urban planners depend on the network-wide estimation of traffic states, such as traffic volume, speed, and occupancy, to make informed decisions to improve the efficiency and sustainability of transportation systems \citep{cheng2020examining, lei2020inferring}. Over the past decade, various traffic sensors have been introduced into intelligent transportation systems for real-time traffic monitoring and continuous data collection, allowing the estimation and prediction of network-wide traffic state \citep{lei2021minimum, xu2022integrating, cheng2023comparison}. However, due to limited municipal funding, built-environment constraints, and substantial maintenance costs, traffic sensors are typically installed only at selected locations, such as major roads, junctions, and transit hubs \citep{zhang2020network}. As a result, transport managers can only track current traffic states and predict future ones on certain roads and in specific areas, lacking comprehensive monitoring of traffic states throughout the network. In the context of this prevalent reality of insufficient sensor coverage, estimating traffic at sensor-free locations for network-wide traffic analysis presents a significant challenge for transportation researchers and practitioners. 
+
+Most existing research on traffic state estimation (TSE) focuses on inferring several unknown time points in a traffic time series of the concerned locations based on partially observed data \citep{Qu2009PPCABasedMD}. This TSE problem, referred to as \textit{TSE with partial observations (TSEP)}, requires the concerned locations to be sensor-equipped nodes. The conventional methods employed for TSEP include matrix factorization techniques and deep learning approaches, most of which are deterministic models that generate point-value estimates \citep{qiu2019nei,chen2021low,wang2023low}. Though promising, deterministic models have one major drawback: it is difficult to handle the high uncertainty in traffic states, which is inevitable in real-world traffic situations. \hyperref[fig:concept_BM_deterministic]{Fig.\,\ref{fig:concept_BM_deterministic}} illustrates the experimental results using a long short-term memory (LSTM) model, which is a deterministic model, to tackle TSEP at a specific location. The point-value estimates, particularly those during peak hours, deviate from the ground truth due to the challenges posed by the multifactorial nature of traffic states, such as weather conditions, missing values, road conditions, and driver behavior. These factors can cause fluctuations and anomalies in traffic patterns, which cannot be effectively captured and predicted by deterministic models because they lack the capability to provide a measure of confidence for their estimates \citep{zhou2020variational}. Consequently, the quality and reliability of these estimates cannot be accurately evaluated, preventing flexible and robust decision-making processes for traffic management and control \citep{jin2022variational}. For example, the traffic signal control strategy optimization depends on not only the point-value estimates, but also the variability of the estimates. The information allows them to assess the risks and benefits of different strategies.
+
+\begin{figure}[pos=htbp,width=8.5cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.75\textwidth]{figs/concept_BM_deterministic.pdf}
+  \caption{Experimental results for TSEP using LSTM}\label{fig:concept_BM_deterministic}
+\end{figure}
+
+One way to bridge the above research gap is to use probabilistic models, which can explicitly represent the variability of traffic states and models. In probabilistic models, the traffic state is treated as a random variable, and probabilistic methods are used to infer the distribution of the traffic state given the observed data \citep{gu2016probabilistic}. This provides a measure of confidence for their estimates. The existing probabilistic models for TSEP can be broadly categorized into three classes: those based on the Bayesian framework \citep{2019Probabilistic}, the Gaussian process (GP) \citep{2017Road}, and the generative deep learning framework \citep{shi2021physicsinformed}. For example, \hyperref[fig:concept_BM_probabilistic]{Fig.\,\ref{fig:concept_BM_probabilistic}} shows the experimental results of TSEP using a Bayesian probabilistic model for the same location as shown in \hyperref[fig:concept_BM_deterministic]{Fig.\,\ref{fig:concept_BM_deterministic}}. Instead of providing point-value estimates, the Bayesian probabilistic model infers a distribution of estimated traffic states, covering the ground truth of the estimation target. However, like most deterministic models for TSE, the majority of the existing probabilistic models focus on TSEP, which requires the concerned locations to be equipped with sensors. In other words, most probabilistic models for TSE rely on learning the historical patterns of the concerned location based on its partial observations to estimate the distribution of its unknown target points. 
+
+\begin{figure}[pos=htbp,width=10.5cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.75\textwidth]{figs/concept_BM_probabilistic.pdf}
+  \caption{Experimental results for TSEP using Bayesian network}\label{fig:concept_BM_probabilistic}
+\end{figure}
+
+\rev{Different from previous literature, this study focuses on a new problem, namely, traffic state estimation at sensor-free locations (TSES). The TSES problem is distinct from the TSEP problem, as there are no available observations at the sensor-free locations, and the objective is to infer the entire unknown time series of these sensor-free locations, as shown in \hyperref[fig:TSES_problem_diagram]{Fig.\,\ref{fig:TSES_problem_diagram}(a)}.  TSES is more challenging than TSEP due to increased predictive difficulty, as it is impossible to learn historical patterns of traffic states at the concerned sensor-free locations. \hyperref[fig:TSES_problem_diagram]{Fig.\,\ref{fig:TSES_problem_diagram}(b)} shows the desired probabilistic estimation results in TSES for a specific sensor-free location, where the estimated distribution accurately covers the ground truth.} To achieve this, the expected probabilistic model must have a specific design for TSES to explore the spatio-temporal dependencies between the unknown traffic states of sensor-free locations and the observed traffic states of sensor-equipped locations. 
+
+\begin{figure}[pos=htbp,width=13cm,align=\centering]
+  \centering
+  \colorbox{red!5}{
+  \parbox{\linewidth}{
+  \begin{minipage}{0.32\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figs/diagram_problem.pdf}
+    \subcaption{Problem diagram of TSES}
+  \end{minipage}\hfill
+  \begin{minipage}{0.68\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figs/concept_SM_probabilistic.pdf}
+    \subcaption{Desired results for TSES using a probabilistic model}
+  \end{minipage}
+  \caption{Problem diagram and desired probabilistic estimation results for TSES}
+  \label{fig:TSES_problem_diagram}
+  }}
+\end{figure}
+
+To address the challenge of TSES, we develop a novel probabilistic learning framework named conditional diffusion framework with spatio-temporal estimator (CDSTE) by extending the denoising diffusion probabilistic models (DDPM) \citep{ho2020denoising}. Previous research on TSEP using DDPM-based models often employs a conditional probabilistic framework, where the task is to estimate the distribution of the estimation target of the concerned sensor-equipped locations conditioned on the partially observed traffic states of those locations \citep{rasul2021autoregressive,tashiro2021csdi}. Unlike the existing conditional DDPMs for TSEP, the proposed CDSTE uses a different conditional probabilistic scheme to estimate the distribution of the target points of the concerned sensor-free locations conditioned on the available observed traffic states of sensor-equipped locations. To learn the spatio-temporal dependencies of traffic states between sensor-free locations and sensor-equipped locations, we incorporate an Inception network \citep{wu2023timesnet} as the temporal feature extraction module and a spatial transformer \citep{xu2020spatial} as the spatial feature extraction module into the noise estimator of the proposed CDSTE framework. The CDSTE is trained and evaluated on five traffic datasets, and its performance is compared with those of three state-of-the-art baseline models. The experimental results indicate that the proposed CDSTE outperforms all baseline models on almost all datasets for the probabilistic estimation in TSES.
+
+\rev{The contributions of this study can be summarized as follows:
+\begin{enumerate}
+    \item Introducing a novel conditional diffusion framework designed for TSES, which is a new application area for diffusion models.
+    \item Integrating spatio-temporal dependency modeling into the diffusion framework with a specific conditioning scheme that leverages information from sensor-equipped locations to estimate the traffic states at sensor-free locations.
+    \item Providing reliable probabilistic estimations that can be used to quantify the variability of the estimation in TSES to support flexible and robust decision making in traffic management and control.
+    \item Demonstrating the effectiveness of the proposed model on real-world datasets, showing significant improvements over popular baselines.
+\end{enumerate}
+}
+
+The remainder of this paper is organized as follows. \hyperref[sec:liter]{Section \ref{sec:liter}} reviews related studies for TSE. \hyperref[sec:Diff]{Section \ref{sec:Diff}} introduces different diffusion frameworks for TSE. \hyperref[sec:methodology]{Section \ref{sec:methodology}} formulates the proposed CDSTE, followed by the elaboration of the technical modules of the noise estimator in \hyperref[sec:noise]{Section \ref{sec:noise}}. After this, \hyperref[sec:CaseStudy]{Section \ref{sec:CaseStudy}} presents the findings from a comprehensive series of experiments for assessing the performance of our model against three benchmark methods. Finally, \hyperref[sec:conclusion]{Section \ref{sec:conclusion}} summarizes the main conclusions and provides future research directions.
+
+\section{Literature Review}\label{sec:liter}
+This section reviews the state of the art on TSE with a focus on two main types of models: deterministic and probabilistic. Each type of the models has been widely applied for TSEP, while the applications for TSES are rare.
+
+\subsection{Deterministic models for TSEP}
+ The conventional deterministic models employed for TSEP include matrix factorization techniques and deep learning approaches. The widely used matrix factorization methods for TSEP include Principle Component Analysis (PCA) and matrix completion algorithms. For example, \cite{Li2013EfficientMD} extended the PCA method by incorporating traffic flow information from neighboring detection points to develop a kernel PCA for deterministic estimation in TSEP. \cite{chen2021low} introduced a low-rank autoregressive tensor completion framework that incorporated temporal variation to capture global consistency to produce point-value estimates. Similarly, \cite{wang2023low} employed a low-rank Hankel tensor completion approach for TSE using partial observations from mobile sensors. Recent years have witnessed a surge in using deterministic deep learning models for TSEP. Notably, \cite{qiu2019nei} developed the Nei-TTE method for TSEP in smart cities, utilizing deep learning and historical trajectory data to capture segment characteristics and improve prediction accuracy. \cite{xu2020ge} introduced a deep learning framework called GE-GAN for real-time TSEP using graph embedding and generative adversarial network techniques.
+
+\subsection{Probabilistic models for TSEP}
+As aformentioned in \hyperref[sec:introduction]{Section \ref{sec:introduction}}, there are three types of probabilistic models for TSEP, which are based, respectively, on the Bayesian framework, GP models, and deep learning generative models. Bayesian-based models allow the integration of prior knowledge and data likelihood to obtain the posterior distribution of traffic states. For example, \cite{han2021estimation} presented traffic flow rate estimation methods using headway data from connected automated vehicles and compared Bayesian inference and deep learning-based methods. \cite{zhang2023approximate} developed switching state-space models based on a Bayesian learning framework to approximate dynamic traffic flows at signalized intersections.
+
+Apart from the Bayesian framework, GP models, a non-parametric method for modeling complex and nonlinear functions, have also been used for TSEP. These models provide flexibility in modeling the spatio-temporal dynamics of traffic states and can quantify the variability of estimates. For example, \cite{wu2023traffic} proposed a topic-enhanced GP aggregation model for road traffic speed prediction, which integrated multiple source data, such as vehicle probe data, loop detector data, and road network information. \cite{liu2023gaussian} adopted the GP model as the base model to learn the optimal mapping of the input features to traffic volume. \rev{Although GP methods are powerful for TSEP or prediction tasks, applying them to TSES poses a great challenge. Specifically, TSES requires a model design capable of learning and inferring spatio-temporal patterns from sensor-equipped locations to sensor-free locations, a requirement that most existing GP methods, including spatio-temporal variational GP models \citep{todescato2020efficient,hamelijnck2021spatio}, can not address.}
+
+Recently, deep generative models have been employed for TSEP as well. \cite{zhao2022integrating} introduced an observer-informed deep learning paradigm for TSEP. As a relatively new type of deep generative model, diffusion models for TSEP have not received sufficient attention. Among the limited studies, \cite{tashiro2021csdi} proposed a novel method for time series imputation using conditional DDPMs. Based on conditional DDPMs, \cite{wen2023diffstg} proposed a probabilistic spatio-temporal graph forecasting model for TSEP. To the best of our knowledge, no one has explored probabilistic models for TSES.
+
+\section{Diffusion Frameworks for TSE}\label{sec:Diff}
+Before delving into the details of the proposed model, we first compare the fundamentals of different diffusion frameworks, including the existing unconditional DDPMs, the existing conditional DDPMs that focus on TSEP, and the dedicated conditional diffusion framework of the proposed CDSTE for TSES. In general, diffusion frameworks consist of two stages: the diffusion process and the reverse process. During the diffusion phase, noise is incrementally added to the original data until it resembles a sample of a Gaussian distribution. At the same time, a noise estimator is trained using these increasingly noisy data as input. This phase is characterized as a Markov chain that progressively generates noisier samples \citep{ho2020denoising}. As for the reverse process, an estimated sample of the original data will be generated by subtracting the estimated noise, derived from the trained noise estimator, from a random Gaussian distribution sample. By repeating the reverse process with different random Gaussian samples, we can obtain an estimated distribution that serves as a probabilistic estimation of the original data. The key distinctions between different diffusion frameworks lie in whether noise is added and removed across the entire time series, and to what extent the diffusion model can condition on available observations. These differences determine the suitability of different diffusion frameworks for various TSE tasks, such as traffic simulation, TSEP, and TSES.
+
+\subsection{Unconditional DDPM for traffic simulation}
+Let $\boldsymbol{\mathcal{V}}$ represent the set of $V$ nodes in an urban road network, such as the intersections in a traffic network. In the context of unconditional DDPMs, all nodes in $\boldsymbol{\mathcal{V}}$ are equipped with sensors. We represent the complete observed traffic states for all nodes by $\boldsymbol{X}\in\mathbb{R}^{L\times V}$, assuming that $\boldsymbol{X}$ is drawn from an unknown distribution $q(\boldsymbol{X})$, where $L$ represents the length of the time series. The goal of an unconditional DDPM is to train a model that generates a distribution $p_{\theta}(\Tilde{\boldsymbol{X}})$, which approximates $q(\boldsymbol{X})$, where $\theta$ denote the model parameters \citep{song2020improved}. During the diffusion process of unconditional DDPM, noise is gradually added to the entire time series $\boldsymbol{X}$. Consequently, the estimated traffic states of the reverse process, $\Tilde{\boldsymbol{X}}\in\mathbb{R}^{L\times V}$, will have the same dimensions as the original observed traffic states, $\boldsymbol{X}$. The unconditional DDPM can be applied for traffic simulation, where $\Tilde{\boldsymbol{X}}\sim p_{\theta}(\Tilde{\boldsymbol{X}})$ follows the general traffic patterns of $\boldsymbol{X}$, but with minor deviations since each $\Tilde{\boldsymbol{X}}$ originates from a random Gaussian sample. However, the unconditional DDPM is incapable of addressing either TSEP or TSES, as it can only output the estimation for the entire original time series. The diffusion and reverse processes of an unconditional DDPM are illustrated in \hyperref[fig:unconditional_DDPM]{Fig.\,\ref{fig:unconditional_DDPM}}.
+
+\begin{figure}[pos=htbp,width=14cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.95\textwidth]{figs/unconditional_DDPM.pdf}
+  \caption{Diffusion and reverse processes in an unconditional DDPM for traffic simulation}\label{fig:unconditional_DDPM}
+\end{figure}
+
+\subsection{Conditional DDPM for TSEP}
+Previous research on conditional DDPMs for TSEP divides node set $\boldsymbol{\mathcal{V}}$ into $\boldsymbol{\mathcal{V}}_{c}$ and $\boldsymbol{\mathcal{V}}_{n}$, where $\boldsymbol{\mathcal{V}}_{c}$ represents the set of locations with complete observations and $\boldsymbol{\mathcal{V}}_{n}$ represents the set of locations with partial observations \citep{wen2023diffstg}. The actual target of TSEP is denoted by $\boldsymbol{X}_{n}^{u}\in\mathbb{R}^{l_{u}\times V_n}$, which represents the unknown segment of nodes in $\boldsymbol{\mathcal{V}}_{n}$, with $l_{u}$ indicating its length. The partial observations of the nodes in $\boldsymbol{\mathcal{V}}_{n}$ are represented by $\boldsymbol{X}_{n}^{k}\in\mathbb{R}^{l_{k}\times V_{n}}$, and complete observations of nodes in $\boldsymbol{\mathcal{V}}_{c}$ are denoted by $\boldsymbol{X}_{c}\in\mathbb{R}^{L\times V_{c}}$. For model training, the conditional DDPM separates $\boldsymbol{X}_{c}$ into $\boldsymbol{X}_{c}^{k}\in\mathbb{R}^{l_{k}\times V_{c}}$ and $\boldsymbol{X}_{c}^{u}\in\mathbb{R}^{l_{u}\times V_{c}}$, where $L = l_{k} + l_{u}$. \rev{In the diffusion process of the conditional DDMP, random Gaussian noise $\epsilon_t \sim \mathcal{N}(0, \mathbf{I})$ is incrementally added to the presumed unknown $\mathbf{X}^u_c$. This process transforms the data into a Gaussian distribution by the final diffusion step, effectively simulating the process of gradually losing information about the original state. It is crucial to note that $\mathbf{X}^k_c$, representing the known segment of traffic states, serves as a conditional input to inform the diffusion about the observed traffic states but does not contribute to the generation of noise.} By denoising, the reverse process obtains $\Tilde{\boldsymbol{X}}^{u}_{n}\sim p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{n} \mid \boldsymbol{X}^{k}_{n},\boldsymbol{X}_{c}\right)$, which is an approximation of $q\left(\boldsymbol{X}_{n}^{u} \mid \boldsymbol{X}_{n}^{k}, \boldsymbol{X}_{c}\right)$ \citep{tashiro2021csdi}. This formulation is specifically designed to address TSEP, as it estimates the unknown segments $\boldsymbol{X}_{n}^{u}$ of the time series at locations in $\boldsymbol{\mathcal{V}}_{n}$, given the known segment $\boldsymbol{X}_{n}^{k}$. \hyperref[fig:conditional_DDPM]{Fig.\,\ref{fig:conditional_DDPM}} shows the diffusion and reverse processes of conditional DDPM for TSEP.
+
+\begin{figure}[pos=htbp,width=12cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.95\textwidth]{figs/conditional_DDPM.pdf}
+  \caption{Diffusion and reverse processes in a conditional DDPM for TSEP}\label{fig:conditional_DDPM}
+\end{figure}
+
+\subsection{Conditional diffusion framework CDSTE for TSES} \label{sec:CDSTE_concept}
+Let $\boldsymbol{X}_{f}^{u}\in\mathbb{R}^{L\times V_f}$ denote the traffic time series of sensor-free locations, which remain completely unobserved and $\boldsymbol{X}_{e}\in\mathbb{R}^{L\times V_e}$ represent the entire time series of sensor-equipped locations that are fully observable. The total set of nodes, $\boldsymbol{\mathcal{V}}$, is the union of $\boldsymbol{\mathcal{V}}_{f}$ and $\boldsymbol{\mathcal{V}}_{e}$. For the probabilistic estimation of TSES in this study, our objective is to approximate the conditional distribution $q(\boldsymbol{X}_{f}^{u} \mid \boldsymbol{X}_{e})$, which is the probability of unknown traffic states at sensor-free locations $\boldsymbol{X}_{f}^{u}$, conditioned on observed traffic states at sensor-equipped locations $\boldsymbol{X}_{e}$. Since only $\boldsymbol{X}_{e}$ are available for model training, we divide $\boldsymbol{X}_{e}$ into two parts: $\boldsymbol{X}_{e}^{u}\in\mathbb{R}^{L\times V_{e}^{u}}$ and $\boldsymbol{X}_{e}^{k}\in\mathbb{R}^{L\times V_{e}^{k}}$, which correspond to $\boldsymbol{\mathcal{V}}_{e}^{u}$ and $\boldsymbol{\mathcal{V}}_{e}^{k}$, respectively. Herein $\boldsymbol{\mathcal{V}}_{e}^{u}$ represents the presumptive set of sensor-free locations, which is a subset of $\boldsymbol{\mathcal{V}}_{e}$, whereas the node set $\boldsymbol{\mathcal{V}}_{e}^{k}=\boldsymbol{\mathcal{V}}_{e}\backslash\boldsymbol{\mathcal{V}}_{e}^{u}$ represents the presumptive set of sensor-equipped locations. In the diffusion process of CDSTE, random Gaussian noise is gradually added to $\boldsymbol{X}_{e}^{u}$. The reverse process then performs denoising and outputs $\Tilde{\boldsymbol{X}}^{u}_{e}\sim p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e}\right)$, where the conditional distribution $p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e}\right)$ is the probability of estimated traffic states of presumptive sensor-free locations $\Tilde{\boldsymbol{X}}^{u}_{e}$, conditioned on traffic states of presumptive sensor-equipped locations $\boldsymbol{X}^{k}_{e}$. \rev{Notably, $\boldsymbol{X}^k_e$ remains constant during the diffusion process, serving as a stable conditional input that helps the model to focus on learning how to generate the traffic states at sensor-free locations, $\boldsymbol{X}^u_e$, by leveraging the fixed, known conditions provided by $\boldsymbol{X}^k_e$.} By generalizing $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e})$ to $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e})$, the CDSTE obtains $\Tilde{\boldsymbol{X}}^{u}_{f}\sim p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e})$ at each run of the reverse process, where $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e})$ is an approximation of $q(\boldsymbol{X}_{f}^{u} \mid \boldsymbol{X}_{e})$ and serves as the probabilistic estimation results for TSES. The diffusion and reverse processes of the proposed CDSTE are illustrated in \hyperref[fig:conditional_CDSTE]{Fig.\,\ref{fig:conditional_CDSTE}}. 
+
+\begin{figure}[pos=htbp,width=10cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.99\textwidth]{figs/conditional_CDSTE.pdf}
+  \caption{Diffusion and reverse processes of CDSTE for TSES}\label{fig:conditional_CDSTE}
+\end{figure}
+
+In the next section, we elaborate on the technical details of the formulation and implementation of the proposed CDSTE to address the challenging probabilistic estimation for TSES. 
+
+\section{Methodology}\label{sec:methodology}
+\rev{The overall workflow of the proposed CDSTE can be described as: Initially, the dataset is split into training and validation sets, where a subset of locations is selected as sensor-free for validation. During each training epoch, another subset of locations from the remaining nodes is randomly selected to mimic sensor-free conditions, generating diverse training samples. The diffusion process involves adding noise iteratively to the traffic states at these presumed sensor-free locations, which trains the noise estimator. For validation, the reverse process applies, where the model performs denoising on the masked input from the validation set to generate probabilistic estimations. The performance of the CDSTE is then evaluated by comparing these estimations with the ground-truth traffic states at the originally selected sensor-free locations. The overall workflow is illustrated in \hyperref[fig:simple_illustration_TSES]{Fig.\,\ref{fig:simple_illustration_TSES}}.}
+
+\begin{figure}[pos=htbp,width=9cm,align=\centering]
+  \centering
+  \colorbox{red!5}{
+  \parbox{\linewidth}{
+  \includegraphics[width=1\textwidth]{figs/simple_illustration_TSES.pdf}
+  \caption{The overall scheme of CDSTE}\label{fig:simple_illustration_TSES}
+  }}
+\end{figure}
+
+The core of the proposed CDSTE is to use accessible observations at sensor-equipped locations to estimate the traffic states of sensor-free locations. The primary challenge lies in the generalization of the conditional probabilities represented by
+\begin{linenomath*}
+\begin{equation}
+p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e}\right) \rightarrow p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e}\right).
+\end{equation}
+\end{linenomath*}
+This challenge arises from the difficulty in establishing a direct correlation between these two conditional probabilities. A natural idea to tackle this challenge is to integrate the underlying spatial dependencies in the traffic states between sensor-free and sensor-equipped locations into model learning.
+
+The spatial and topological relationship between sensor-free and sensor-equipped locations is typically known, and their traffic states have been shown to adhere to certain spatial patterns in prior research. For example, the existing literature has suggested that traffic states often display a proximity phenomenon, where the values of traffic states at neighboring locations are closely related \citep{cheng2020examining, sun2020identifying}. Motivated by this, in this study, we introduce a normalized weighted adjacency matrix $\boldsymbol{A}\in\mathbb{R}^{V\times V}$, calculated based on the distances between locations in the network, into the model formulation to facilitate spatial dependency learning. \rev{For a given network, the adjacency matrix A is fixed and reflects the known spatial relationships between the nodes. This matrix remains unchanged regardless of the sensor status of individual nodes within the network.} The objective of the probabilistic estimation of TSES can then be expressed as $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e}, \boldsymbol{A})$, which is an approximation of the actual data distribution $q(\boldsymbol{X}_{f}^{u} \mid \boldsymbol{X}_{e}, \boldsymbol{A})$. In this context, we consider the following generalization:
+\begin{linenomath*}
+\begin{equation}
+p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\rightarrow p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e}, \boldsymbol{A}\right).
+\label{equ:ModelGeneralization}
+\end{equation}
+\end{linenomath*} 
+This generalization suggests that we could extract a general spatial dependency in the traffic states between locations in the network by learning the model $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A})$, though it only involves traffic states of presumptive sensor-free and sensor-equipped locations. The extracted spatial dependency can then be utilized to correlate the traffic states of the actual sensor-free locations and the sensor-equipped locations to obtain the probabilistic estimation result $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f} \mid \boldsymbol{X}_{e}, \boldsymbol{A})$.
+
+The following subsections present the diffusion process of CDSTE for training a noise estimator and the reverse process for obtaining $p_{\theta}\left(\Tilde{\boldsymbol{X}}^{u}_{e} \mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)$ via denoising. 
+
+\subsection{Diffusion process of CDSTE}\label{sec:CDSTEdiffusion}
+Consider a sample $\boldsymbol{X}^{u}_{e}(0)$, drawn from the data distribution $q\left(\boldsymbol{X}^{u}_{e}(0) \mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)$. Here, $0$ in parenthesis represents the diffusion step $t=0$, indicating that the Gaussian noise has not yet been added to the sample. A diffusion process is characterized as a Markov chain that generates a sequence of progressively noisier samples, $\boldsymbol{X}^{u}_{e}(1:T) = \boldsymbol{X}^{u}_{e}(1), \ldots, \boldsymbol{X}^{u}_{e}(T)$, by iteratively incorporating Gaussian noise in diffusion steps. This can be expressed as
+\begin{linenomath*}
+\begin{equation}
+q\left(\boldsymbol{X}^{u}_{e}(1:T) \mid \boldsymbol{X}^{u}_{e}(0), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)=\prod_{t=1}^{T} q \left( \boldsymbol{X}^{u}_{e}(t) \mid \boldsymbol{X}^{u}_{e}(t-1), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right),
+\end{equation}
+\end{linenomath*}
+where the conditional probability is assumed to follow a Gaussian distribution as follows:
+\begin{linenomath*}
+\begin{equation}
+q \left( \boldsymbol{X}^{u}_{e}(t) \mid \boldsymbol{X}^{u}_{e}(t-1), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\sim\mathcal{N}\left(\boldsymbol{X}^{u}_{e}(t) ; \sqrt{1-\beta_t} \boldsymbol{X}^{u}_{e}(t-1),\, \beta_t \boldsymbol{I}\right).
+\end{equation}
+\end{linenomath*}
+where $\beta_{t}$ denotes a weight parameter that increases from 0 to 1, utilized to control the noise intensity at each diffusion step $t$, $t\in\{1,2,\ldots,T\}$. This is a common way to model a diffusion process, where the noises added at each diffusion step are independent and identically distributed Gaussian random variables \citep{song2020denoising}. As the diffusion step increases from $t=1$ to $t=T$, the original data point $\boldsymbol{X}^{u}_{e}(0)$ will gradually lose its distinctive characteristics. When $T\rightarrow \infty$, the final noised sample $\boldsymbol{X}^{u}_{e}(T)$ conforms to a Gaussian distribution \citep{song2020improved}, i.e., $\boldsymbol{X}^{u}_{e}(T)\sim\mathcal{N}\left(\boldsymbol{0}, \boldsymbol{I}\right)$.
+
+The diffusion process generally exhibits a non-autoregressive property \citep{ho2020denoising}, allowing us to express $\boldsymbol{X}^{u}_{e}(t)$ at any arbitrary diffusion step $t$ in a closed form. Specifically, we have the following distribution of $\boldsymbol{X}^{u}_{e}(t)$ conditioned on $\boldsymbol{X}^{u}_{e}(0)$, $\boldsymbol{X}^{k}_{e}$, and $\boldsymbol{A}$:
+\begin{linenomath*}
+\begin{equation}
+q\left(\boldsymbol{X}^{u}_{e}(t) \mid \boldsymbol{X}^{u}_{e}(0), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\sim\mathcal{N}\left(\boldsymbol{X}^{u}_{e}(t) ; \sqrt{\bar{\alpha}_t} \boldsymbol{X}^{u}_{e}(0),\left(1-\bar{\alpha}_t\right) \boldsymbol{I}\right),
+\label{equ:forward_cond}
+\end{equation}
+\end{linenomath*}
+where $\bar{\alpha}_t=\prod _{t=1}^t \alpha_t$ signifies the cumulative products of $\alpha_t = 1 - \beta_t$.
+\noindent By implementing the reparameterization trick on \hyperref[equ:forward_cond]{Eq.\,(\ref{equ:forward_cond})}, we can express $\boldsymbol{X}^{u}_{e}(t)$ as
+\begin{linenomath*}
+\begin{equation}
+\boldsymbol{X}^{u}_{e}(t) =\sqrt{\bar{\alpha}_t} \boldsymbol{X}^{u}_{e}(0)+\sqrt{1-\bar{\alpha}_t} \boldsymbol{\epsilon}_{t},
+\label{equ:DDPM_add_noise}
+\end{equation}
+\end{linenomath*}
+where $\epsilon_{t} \sim \mathcal{N}\left(\boldsymbol{0}, \boldsymbol{I}\right)$ represents the random Gaussian noise added at diffusion step $t$.
+
+The noise estimator $\epsilon_{\theta}$ can then be trained by minimizing the loss between the actual added noise at diffusion step $t$ and the noise estimated by $\epsilon_{\theta}$. The loss function can be expressed as
+\begin{linenomath*}
+\begin{equation}
+\min _{\theta}\,\mathcal{L}_t =\min _{\theta}\,\mathbb{E}_{t \in [1, T], \epsilon_{t}\sim\mathcal{N}(\boldsymbol{0}, \boldsymbol{I})}
+\left[\left\|\boldsymbol{\epsilon}_{t}-\boldsymbol{\epsilon}_\theta\left(\boldsymbol{X}^{u}_{e}(t), t | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\right\|^2\right].
+\end{equation}
+\end{linenomath*}
+
+We illustrate the diffusion process of CDSTE in \hyperref[fig:CDSTE_diffusion]{Fig.\,\ref{fig:CDSTE_diffusion}}.
+
+\begin{figure}[pos=htbp,width=8cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.9\textwidth]{figs/CDSTE_diffusion.pdf}
+  \caption{Diffusion process of CDSTE}\label{fig:CDSTE_diffusion}
+\end{figure}
+
+\subsection{Reverse process of CDSTE}
+The diffusion process described above can be reversed to recover the original input $\boldsymbol{X}^{u}_{e}(0)$ from Gaussian noise $\boldsymbol{X}^{u}_{e}(T) \sim \mathcal{N}\left(\boldsymbol{0}, \boldsymbol{I}\right)$. Conceptually, the reverse process is characterized by the conditional probability $q\left(\boldsymbol{X}^{u}_{e}(t-1) \mid \boldsymbol{X}^{u}_{e}(t)\right)$. However, it is intractable to directly estimate $q\left(\boldsymbol{X}^{u}_{e}(t-1) \mid \boldsymbol{X}^{u}_{e}(t)\right)$ as it requires the evaluation of all possible outcomes of the conditional probability. Instead, we learn the following model distribution $p_{\theta}$, which is also characterized by a Markov chain that generates a sequence of progressively denoised samples, $\Tilde{\boldsymbol{X}}^{u}_{e}(T:0)=\Tilde{\boldsymbol{X}}^{u}_{e}(T), \ldots, \Tilde{\boldsymbol{X}}^{u}_{e}(0)$.
+\begin{linenomath*}
+\begin{equation}
+p_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(T:0)\mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)=p\left(\Tilde{\boldsymbol{X}}^{u}_{e}(T)\right) \prod_{t=T}^{1} p_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t-1) \mid \Tilde{\boldsymbol{X}}^{u}_{e}(t), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right).
+\label{equ:CondReverseMarkov}
+\end{equation}
+\end{linenomath*}
+\noindent We assume that the conditional probability $p_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t-1) | \Tilde{\boldsymbol{X}}^{u}_{e}(t), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)$ also follows a Gaussian distribution as follows:
+\begin{linenomath*}
+\begin{equation}
+p_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t-1) | \Tilde{\boldsymbol{X}}^{u}_{e}(t), \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\sim\mathcal{N}\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t-1);\mu_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t), t | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right), \boldsymbol{\sigma}^{2}_{\theta}\left(\boldsymbol{X}^{u}_{e}(t), t | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\right).
+\label{equ:CDSTEreverse}
+\end{equation}
+\end{linenomath*}
+
+Following the model construction of the unconditional DDPM introduced by \cite{ho2020denoising}, we employ the following specific parameterization of $\boldsymbol{\mu}_{\theta}$ and $\boldsymbol{\sigma}_{\theta}$ for \hyperref[equ:CDSTEreverse]{Eq.\,(\ref{equ:CDSTEreverse})}:
+\begin{linenomath*}
+\begin{equation}\mu_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t), t | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)=\frac{1}{\sqrt{\alpha_t}}\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t)-\frac{1-\alpha_t}{\sqrt{1-\bar{\alpha}_t}} \boldsymbol{\epsilon}_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t), t | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right)\right),
+\label{equ:DDPMmu}
+\end{equation}
+\end{linenomath*}
+
+\begin{linenomath*}
+\begin{equation}
+\sigma_\theta\left(t\right)=\sqrt{\frac{1-\bar{\alpha}_{t-1}}{1-\bar{\alpha}_t} \beta_t}.
+\label{equ:DDPMsigma}
+\end{equation}
+\end{linenomath*}
+
+By applying the reparameterization trick to \hyperref[equ:CDSTEreverse]{Eq.\,(\ref{equ:CDSTEreverse})}, we derive the following formula for denoising the sample from diffusion step $t$ to $t-1$:
+\begin{linenomath*}
+\begin{equation}
+\Tilde{\boldsymbol{X}}^{u}_{e}(t-1)=\mu_\theta\left(\Tilde{\boldsymbol{X}}^{u}_{e}(t), t | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}\right) + \sigma_\theta\left(t\right)\boldsymbol{\epsilon},
+\label{equ:reverseUpdate}
+\end{equation}
+\end{linenomath*}
+where $t \in \{T,\ldots,1\}$ and $\epsilon\sim \mathcal{N}\left(\boldsymbol{0},\boldsymbol{I}\right)$. 
+
+Starting from $\Tilde{\boldsymbol{X}}^{u}_{e}(T)\sim \mathcal{N}\left(\boldsymbol{0},\boldsymbol{I}\right)$, the reverse process iteratively performs the denoising operation shown in \hyperref[equ:reverseUpdate]{Eq.\,(\ref{equ:reverseUpdate})}, thereby generating $\Tilde{\boldsymbol{X}}^{u}_{e}(0)=\mu_\theta(\Tilde{\boldsymbol{X}}^{u}_{e}(1), 1 | \boldsymbol{X}^{k}_{e}, \boldsymbol{A}) + \sigma_\theta\left(1\right)\boldsymbol{\epsilon}$ as an estimation of the ground truth $\boldsymbol{X}^{u}_{e}(0)\sim q(\boldsymbol{X}^{u}_{e}(0) \mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A})$. By performing reverse processes on a set of $N$ random Gaussian samples $\{\widetilde{\boldsymbol{X}}^{u}_{e}(T)\}_{n=1}^{N}$, the proposed CDSTE generates a set of estimates $\{\widetilde{\boldsymbol{X}}^{u}_{e}(0)\}_{n=1}^{N}$. This set serves as an approximate probabilistic estimate, as it includes all possible outcomes of $\widetilde{\boldsymbol{X}}^{u}_{e}(0)\sim p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{e}(0)\mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A})$ when $N\rightarrow \infty$. Moreover, the optimized parameters $\theta$ of the trained noise estimator $\epsilon_{\theta}$ are the only parameters that determine the model $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{e}(0)\mid \boldsymbol{X}^{k}_{e}, \boldsymbol{A})$.  These same parameters $\theta$ also define the generalized model $p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f}(0)\mid \boldsymbol{X}^{k}, \boldsymbol{A})$, which employs the same trained noise estimator $\epsilon_{\theta}$. Therefore, we can obtain an approximate probabilistic estimation of the traffic states at the actual sensor-free locations $\{\widetilde{\boldsymbol{X}}^{u}_{f}(0) | \widetilde{\boldsymbol{X}}^{u}_{f}(0)\sim p_{\theta}(\Tilde{\boldsymbol{X}}^{u}_{f}(0)\mid \boldsymbol{X}_{e}, \boldsymbol{A})\}_{n=1}^{N}$, by performing the reverse process on a set of $N$ random Gaussian samples $\{\widetilde{\boldsymbol{X}}^{u}_{f}(T) | \widetilde{\boldsymbol{X}}^{u}_{f}(T)\sim \mathcal{N}(\boldsymbol{0},\boldsymbol{I})\}_{n=1}^{N}$. 
+
+\begin{figure}[pos=htbp,width=7.5cm,align=\centering]
+  \centering 
+  \includegraphics[width=1\textwidth]{figs/CDSTE_reverse.pdf}
+  \caption{Reverse process of CDSTE}\label{fig:CDSTE_reverse}
+\end{figure}
+
+
+In real implementation, to assess the performance of our proposed CDSTE, it is crucial to compare the estimated $\Tilde{\boldsymbol{X}}^{u}_{f} = \Tilde{\boldsymbol{X}}^{u}_{f}(0)$ with the ground truth $\boldsymbol{X}^{u}_{f} = \boldsymbol{X}^{u}_{f}(0)$. However, $\boldsymbol{X}^{u}_{f}$ is not available in reality. For an unbiased evaluation of CDSTE, the original data $\boldsymbol{X}\in\mathbb{R}^{L\times V}$ must be complete, i.e., all nodes in $\boldsymbol{\mathcal{V}}$ are sensor-equipped locations. In this study, we select a subset of nodes $\boldsymbol{\mathcal{V}}_{f}$ from set $\boldsymbol{\mathcal{V}}$. The corresponding traffic state records $\boldsymbol{X}^{u}_{f}$ are retained as the test dataset for model evaluation. The traffic state records of the other nodes $\boldsymbol{X}_{e}$ are used for model training during the diffusion process, as shown in \hyperref[fig:OriDataSplit]{Fig.\,\ref{fig:OriDataSplit}}.
+
+\begin{figure}[pos=htbp,width=7.5cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.75\textwidth]{figs/OriDataSplit.pdf}
+  \caption{One split of the original dataset $\boldsymbol{X}$}\label{fig:OriDataSplit}
+\end{figure}
+
+As presented in \hyperref[sec:CDSTE_concept]{Subsection \ref{sec:CDSTE_concept}}, $\boldsymbol{\mathcal{V}}_{e}$ is randomly separated into presumptive sensor-free locations $\boldsymbol{\mathcal{V}}^{u}_{e}$ and sensor-equipped locations $\boldsymbol{\mathcal{V}}^{k}_{e}$. Consequently, $\boldsymbol{X}_{e}$ is split into $\boldsymbol{X}^{u}_{e}$ and $\boldsymbol{X}^{k}_{e}$. Each separation of $\boldsymbol{\mathcal{V}}_{e}$ leads to a specific physical spatial relationship between $\boldsymbol{\mathcal{V}}^{u}_{e}$ and $\boldsymbol{\mathcal{V}}^{k}_{e}$. To achieve robust generalization, as shown in \hyperref[equ:reverseUpdate]{Eq.\,(\ref{equ:reverseUpdate})}, we perform $M$ random separations of $\boldsymbol{\mathcal{V}}_{e}$. This yields different pairs of $\boldsymbol{\mathcal{V}}^{u}_{e}$ and $\boldsymbol{\mathcal{V}}^{k}_{e}$, which allows for an extensive exploration of the spatial dependency between $\boldsymbol{X}^{u}_{e}$ and $\boldsymbol{X}^{k}_{e}$ with varying physical spatial relationships. In this context of model implementation, the training set is defined as $\left\{\boldsymbol{X}_{e} | \boldsymbol{X}^{u}_{e}\cup \boldsymbol{X}^{k}_{e}\right\}_{i=1}^{M}$. 
+
+\section{ST-ResNet-based Noise Estimator}\label{sec:noise}
+Existing diffusion models mainly utilize two types of noise estimators: the Unet-based architecture \citep{ronneberger2015u} for image-related tasks \citep{cao2022swin, saharia2022photorealistic}, and the WaveNet-based approach \citep{vandenOord2016} for time series analysis tasks such as prediction, imputation, and anomaly detection \citep{kong2021diffwave, tashiro2021csdi}. However, these models are limited in their ability to simultaneously capture spatio-temporal correlations in traffic data.
+
+To address this limitation, we propose a novel estimator $\boldsymbol{\epsilon}_{\theta}$, termed as ST-ResNet. The design of ST-ResNet follows a ResNet-like architecture \citep{wu2019wider}, comprising an embedding layer, multiple spatial-temporal residual blocks (ST-ResBlock) connected via residual connections, and a fully connected (FC) network. Each ST-ResBlock employs an Inception module with fast Fourier transform (IncepFFT) to capture multi-periodic temporal dependencies, and a transformer encoder to model the spatial correlations. \rev{The integration of the IncepFFT and Transformer is designed to address the challenges of traffic state estimation at sensor-free locations, which heavily relies on understanding complex spatio-temporal relationships within the data. To our knowledge, this is the first time these components have been integrated in this manner.} ST-ResNet accepts $\{\boldsymbol{X}^{u}_{e}(t)\in\mathbb{R}^{L\times V_{e}^{u}}, \boldsymbol{X}^{k}_{e}\in\mathbb{R}^{L\times V_{e}^{k}}, t, \boldsymbol{A}\}$ and $\{\boldsymbol{X}^{u}_{f}(t)\in\mathbb{R}^{L\times V_{f}}, \boldsymbol{X}_{e}\in\mathbb{R}^{L\times V_{e}}, t, \boldsymbol{A}\}$ as primary inputs for model training in the diffusion process and model evaluation in the reverse process, respectively. It also takes additional information as side input: the timestamps $\boldsymbol{s}\in\mathbb{R}^{L\times 1}$ of the original data $\boldsymbol{X}$ (such as the time of day and the day of week, if available). For brevity, we use $\{\boldsymbol{X}_{u}(t)\in\mathbb{R}^{L\times V_{u}}, \boldsymbol{X}_{k}\in\mathbb{R}^{L\times V_{k}}, t, \boldsymbol{A}, \boldsymbol{s}\}$ to represent the input set of $\boldsymbol{\epsilon}_{\theta}$. Here, $\boldsymbol{X}_{u}(t)$ denotes the noisy traffic states of sensor-free locations at diffusion step $t$, and $\boldsymbol{X}_{k}$ represents the traffic states of sensor-equipped locations.
+
+In the embedding layer, ST-ResNet initially concatenates (Concat) $\boldsymbol{X}_{u}(t)\in\mathbb{R}^{L\times V_{u}}$ and $\boldsymbol{X}_{k}\in\mathbb{R}^{L\times V_{k}}$ into a new tensor $\boldsymbol{X}_{uk}\in\mathbb{R}^{L\times V}$. The inputs are then projected to a high-dimensional representation of shape $(L, V, d)$ by different embedding modules in the embedding layer and then merged into one embedding representation $\boldsymbol{H}(t)\in\mathbb{R}^{L\times V\times d}$. The model dimension $d$, a hyperparameter, controls the model complexity of ST-ResNet. The resulting $\boldsymbol{H}(t)$ is then fed into ST-ResBlocks. Let $\boldsymbol{H}_{i}(t)\in\mathbb{R}^{L\times V\times d}$ and $\boldsymbol{H}'''_{i}(t)\in\mathbb{R}^{L\times V\times d}$ denote the input and output of the $i$-th ST-ResBlock, respectively. The residual connection between $\boldsymbol{H}_{i}(t)$ and $\boldsymbol{H}'''_{i}(t)$ provides the input for the subsequent block, as expressed in the following equation:
+\begin{linenomath*}
+\begin{equation}
+\boldsymbol{H}_{i+1}(t) = \boldsymbol{H}_{i}(t) + \boldsymbol{H}'''_{i}(t).
+\end{equation}
+\end{linenomath*}
+
+\noindent At the end of ST-ResNet, a FC network is deployed, which accepts the output of the last residual block as its input and generates the estimated noise $\boldsymbol{\epsilon}_{\theta}\in\mathbb{R}^{L\times V_{u}}$ for diffusion step $t$. The overall structure of ST-ResNet is illustrated in \hyperref[fig:noise_estimator_architecture]{Fig.\,\ref{fig:noise_estimator_architecture}}.
+
+\begin{figure}[pos=htbp,width=9cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.7\textwidth]{figs/(trimmed) noise_estimator.pdf}
+  \caption{Illustration of ST-ResNet as the noise estimator}\label{fig:noise_estimator_architecture}
+\end{figure}
+
+\noindent\textbf{Embedding modules}. We employ different embedding modules in the embedding layer to project the inputs, considering their distinct original shapes/dimensions and data types. Specifically, two separate 2D convolutional ($Conv2D$) networks are used to embed $\boldsymbol{A}\in\mathbb{R}^{V\times V}$. A 1D convolutional ($Conv1D$) network is employed to project $\boldsymbol{X}_{uk}\in\mathbb{R}^{L\times V}$, which contains continuous values. For the discrete tensor $\boldsymbol{s}\in\mathbb{Z}^{L\times 1}$, we use a straightforward lookup table, $Lookup(\cdot)$. The discrete scalar $t$ is embedded using sinusoidal positional encoding, $Sinu(\cdot)$ \citep{vaswani2017attention}. To accommodate the discrepancies in the shapes, we apply $Reshape(\cdot)$ and $Exand(\cdot)$ operations prior to embedding implementations. The transformation within the embedding layer can be summarized as follows.
+\begin{linenomath*}
+\begin{align}
+&Conv2D\left(Expand\left(Reshape\left(\boldsymbol{A}\right)\right)\right) : \mathbb{R}^{V\times V}\rightarrow\mathbb{R}^{1\times V\times V}\rightarrow\mathbb{R}^{L\times V\times V}\rightarrow\mathbb{R}^{L\times V\times d},\notag\\
+&Conv1D\left(Reshape\left(\boldsymbol{X}_{uk}\right)\right) : \mathbb{R}^{L\times V}\rightarrow\mathbb{R}^{L\times V\times 1}\rightarrow\mathbb{R}^{L\times V\times d}, \\
+&Lookup\left(Expand\left(Reshape\left(\boldsymbol{s}\right)\right)\right) : \mathbb{Z}^{L\times 1}\rightarrow\mathbb{Z}^{L\times 1\times 1}\rightarrow\mathbb{Z}^{L\times V\times 1}\rightarrow\mathbb{R}^{L\times V\times d},\notag\\
+&Sinu\left(Expand\left(Reshape\left(t\right)\right)\right) : \mathbb{Z}\rightarrow\mathbb{Z}^{1\times 1}\rightarrow\mathbb{Z}^{L\times V}\rightarrow\mathbb{R}^{L\times V\times d}.\notag
+\end{align}
+\end{linenomath*}
+
+\noindent\textbf{Temporal dependency modeling}. As depicted in \hyperref[fig:noise_estimator_architecture]{Fig.\,\ref{fig:noise_estimator_architecture}}, the embedded representation $\boldsymbol{H}_{i}(t)$ in ST-ResBlock is initially processed by a specialized version of the Inception network, referred to as IncepFFT. Introduced by \cite{wu2023timesnet}, IncepFFT has emerged as a state-of-the-art model in time series-related tasks, surpassing even the latest widely recognized models such as Informer \citep{zhou2021informer}, FEDformer \citep{zhou2022fedformer}, LSSL \citep{gu2022efficiently}, and DLinear \citep{zeng2023transformers}. Therefore, we incorporate it as the temporal module in ST-ResBlock to effectively capture temporal correlations. The key idea of IncepFFT is to transform a 1D time series into a 2D representation by applying fast Fourier transform (FFT) to convert signals in the time series from the time domain to the frequency domain. Subsequently, IncepFFT employs an Inception network consisting of multiple 2D convolutional kernels to learn the latent multi-periodic temporal dependencies in time series, akin to convolutional neural network-based learning in image-related tasks.
+
+Let $\boldsymbol{h}_{i}\in\mathbb{R}^{L\times 1\times d}$ represent the embedded time series of one node $v\in \mathcal{V}$; then we have $\boldsymbol{H}_{i}(t) = Concat\left(\{\boldsymbol{h}_{i}\}_{1}^{V}\right)$. For ease of presentation, we assume $d=1$, and thus $\boldsymbol{h}_{i}$ is shown as a 1D time series. This is followed by the application of FFT to convert it into $k$ 2D representations of $k$ identified periods. With the inception network, these 2D tensors are convolved and merged into $\boldsymbol{h}'_{i}\in\mathbb{R}^{L\times 1\times d}$. The output of IncepFFT, $\boldsymbol{H}'_{i}(t)\in\mathbb{R}^{L\times V\times d}$, can then be obtained by concatenating $\{\boldsymbol{h}_{i}\}_{1}^{V}$ for all nodes in $\mathcal{V}$. To sum up, IncepFFT can be briefly represented by
+\begin{linenomath*}
+\begin{equation}
+\boldsymbol{H}'_{i}(t) = \textit{IncepFFT}\left(\boldsymbol{H}_{i}(t)\right).
+\end{equation}
+\end{linenomath*}
+The output $\boldsymbol{H}'_{i}(t)$ is then fed into a Layer Normalization to stabilize model training and prevent overfitting. \hyperref[fig:IncepFFT]{Fig.\,\ref{fig:IncepFFT}} shows an illustration of IncepFFT utilized in ST-ResNet.
+
+\begin{figure}[pos=htbp,width=9cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.5\textwidth]{figs/IncepFFT.pdf}
+  \caption{IncepFFT for temporal dependency extraction}\label{fig:IncepFFT}
+\end{figure}
+
+\noindent\textbf{Spatial dependency modeling}. A transformer encoder, which serves as the spatial module within the ST-ResBlock, receives the output of the Layer Normalization, $\boldsymbol{H}''_{i}(t)\in\mathbb{R}^{L\times V\times d}$, as input. Contrary to most transformer-based models that learn temporal variations along the temporal dimension, the spatial transformer \citep{xu2020spatial} adopted in CDSTE models the spatial dependency of the embedded feature of each time point $\boldsymbol{h}''_{i}\in\mathbb{R}^{1\times V\times d}$ along the spatial dimension. As a self-attention mechanism, it assigns different weights to different locations in the spatial dimension, according to their importance evaluated by attention calculation. This allows it to effectively model complex spatial correlations in traffic data. The output of the spatial module is obtained by $\boldsymbol{H}'''_{i}(t) = Concat(\{\boldsymbol{h}''_{i}\}_{1}^{L})$.
+\begin{figure}[pos=htbp,width=9cm,align=\centering]
+  \centering 
+  \includegraphics[width=0.4\textwidth]{figs/spatial_transformer.pdf}
+  \caption{Illustration of the spatial Transformer module}\label{fig:Transformer}
+\end{figure}
+
+\section{Experiments}\label{sec:CaseStudy}
+We conduct extensive experiments to evaluate the effectiveness of our proposed CDSTE on real-world traffic datasets and compare it with three probabilistic baselines.
+
+\subsection{Dataset and experiment settings}
+\noindent\textbf{Dataset description}. This study employs various open-source traffic datasets to perform benchmark experiments. These datasets record time series for either traffic speed or flow as follows:
+
+\begin{itemize}
+\item \textbf{PeMS7} \citep{song2020spatial}: This data group consists of two traffic speed datasets, namely \textbf{PeMS7-M} and \textbf{PeMS7-L}. They are derived from 228 and 1,026 sensors, respectively, in District 7 of the Caltrans Performance Measurement System (PeMS). The data, captured at a resolution of five minutes (yielding 288 time points per day), were collected on weekdays from May through June in 2012. The processed datasets have dimensions of $228\times 12,672$ and $1,026\times 12,672$, respectively, and are structured as multivariate time series matrices.
+\item \textbf{PeMS8} \citep{guo2019attention}: This traffic flow dataset, also sourced from PeMS, was collected from 170 detectors in District 8 from July to August 2016. The processed data consists of a multivariate time series matrix with the dimension $170\times 17,856$.
+\item \textbf{Seattle} \citep{cui2019traffic}: This dataset contains highway traffic speed data collected from 323 loop detectors in Seattle, USA, at a resolution of five minutes. The dataset was collected over the first four weeks of January 2015. The processed dataset is a multivariate time series matrix with dimension $323\times 8,064$.
+\item \textbf{Kowloon}: This traffic flow dataset is offered by the Government Chief Information Office of Hong Kong and is accessible through their \href{https://data.gov.hk/en-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads}{official website}. The dataset incorporates records from 159 sensors scattered throughout the Kowloon district and spans from June 1 to September 30, 2022. The processed data are structured as a multivariate time series matrix with dimension $159\times 35,812$.
+\end{itemize}
+
+\noindent\textbf{Probabilistic baselines}. Given the scarcity of existing models for probabilistic traffic state estimation, we find it necessary to benchmark our model against those in the broader field of probabilistic time series estimation/forecasting. The selected probabilistic baselines are as follows:
+\begin{itemize}
+  \item CSDI \citep{tashiro2021csdi}: One of the earliest models based on a conditional diffusion approach for time series estimation. The primary objective of the original research is to impute partially missing data employing available observations within the time series;
+  \item TimeGrad \citep{rasul2021autoregressive}: An auto-regressive model that incorporates a diffusion model with a recurrent neural network-based encoder;
+  \item DeepAR \citep{salinas2020deepar}. The model employs autoregressive recurrent neural networks to generate accurate probabilistic estimations for time series.
+\end{itemize}
+
+These probabilistic baselines, designed for general time series modeling, typically treat traffic data as either a multivariate or multi-feature time series. They do not consider the spatial correlations inherent among different variates or features in the original data. Consequently, their model frameworks do not incorporate specialized modules for learning spatial dependencies, nor do they demand the provision of adjacency matrices or other forms of spatial information as the model input.
+
+\rev{\noindent\textbf{Deterministic baselines}.To provide a comprehensive evaluation of the proposed CDSTE, we have included two additional deterministic baselines for comparison: Linear Interpolation and Spatial-Temporal Transformer Networks (STTN). The performance of these baselines is evaluated against the deterministic approximations of the CDSTE outcomes.
+\begin{itemize}
+  \item Linear Interpolation: This method serves as a deterministic baseline, where for any sensor-free location, we estimate the traffic state by calculating the mean of the non-lagged traffic states from the nearest sensor-equipped locations;
+  \item STTN \citep{xu2020spatial}: The Spatial-Temporal Transformer Networks leverage dynamical directed spatial dependencies and long-range temporal dependencies to improve the accuracy of long-term traffic estimation.
+\end{itemize}
+}
+
+\noindent\textbf{Metrics}. To properly assess the results of our probabilistic model, which are represented as a set of $N$ generated samples $\{\widetilde{\boldsymbol{X}}_{u}\}_{n=1}^{N}$, we employ the continuous ranked probability score (CRPS) \citep{matheson1976scoring,zamo2018estimation}. This specific metric is utilized to gauge the alignment of the probability distribution approximated by $\{\widetilde{\boldsymbol{X}}_{u}\}_{n=1}^{N}$ and the observed ground truth $\boldsymbol{X}_{u}$. \rev{The CRPS for a single sample $\widetilde{\mathbf{X}}_u$ can be calculated as follows,
+\begin{linenomath*}
+\begin{equation}
+\operatorname{CRPS}\left(\widetilde{\mathbf{X}}_u, \mathbf{X}_u\right)=\int_{-\infty}^{\infty}(\operatorname{F}(\widetilde{\mathbf{X}}_u)-\operatorname{H}(\widetilde{\mathbf{X}}_u - \mathbf{X}_u))^2 {dX},
+\end{equation}
+\end{linenomath*}
+where $\operatorname{F}(\cdot)$ is the cumulative distribution function (CDF) of the approximated distribution. $\operatorname{H}(\cdot)$ is the Heaviside step function centered at the true value $\mathbf{X}_u$, which is 0 for $\widetilde{\mathbf{X}}_u < \mathbf{X}_u$ and 1 for $\widetilde{\mathbf{X}}_u \geq \mathbf{X}_u$. In practice, we approximate the overall CRPS by averaging the CRPS values for each sample in the set $\left\{\widetilde{\mathbf{X}}_u\right\}_{n=1}^{N}$,
+\begin{linenomath*}
+\begin{equation}
+\operatorname{CRPS}=\frac{1}{N} \sum_{n=1}^{N} \operatorname{CRPS}\left(\widetilde{\mathbf{X}}_{u, n}, \mathbf{X}_u\right).
+\end{equation}
+\end{linenomath*}
+}
+
+In addition, we also report the mean absolute error (MAE) and the mean squared error (RMSE), which are traditional benchmarks for evaluating the effectiveness of deterministic models. For this purpose, we calculate the median of $\{\widetilde{\boldsymbol{X}}_{u}\}_{n=1}^{N}$ to serve as the approximated deterministic result of the probabilistic models for traffic state estimation. \rev{The median value is then compared with the ground truth $\boldsymbol{X}_{u}$ to determine MAE and RMSE. We prefer the median over other statistics because it is less sensitive to outliers.} It is important to note that lower values for all three metrics indicate better performance.
+
+\rev{\noindent\textbf{Model training}. For each dataset, we initially reserve the traffic states from a randomly selected proportion of locations as the ground truth of presumed sensor-free locations for validation or testing, denoted as $\mathbf{X}^u_f$ corresponding to $\boldsymbol{\mathcal{V}}_f$. During each training epoch, a proportion of nodes (determined by the missing ratio) in $\boldsymbol{\mathcal{V}}_e$ is randomly selected as presumed sensor-free locations for training, represented as $\boldsymbol{\mathcal{V}}^u_e$. The remaining nodes are considered as presumed sensor-equipped locations, denoted as $\boldsymbol{\mathcal{V}}^k_e$. The training samples, specified as $(\mathbf{X}^u_e, \mathbf{X}^k_e)$, vary with each training epoch, allowing us to extensively explore different patterns of spatial dependency during training. Each of the baselines is trained following the same experimental setup as CDSTE. This ensures that even though the baselines do not incorporate a module specifically for spatial dependency learning, they are provided with identical input information, including timestamps and adjacency matrices. Additionally, the random seed and training sequence lengths were standardized across all models to maintain consistency in the training conditions. This standardization allows for a fair comparison of the models' performance in estimating traffic states at sensor-free locations.
+}
+
+\subsection{Performance comparison}
+\hyperref[tab:ModelComp]{Table \ref{tab:ModelComp}} summarizes the comparison results of the proposed CDSTE and the three baselines for the aforementioned five datasets. In each entry of the table, we report three values, MAE / RMSE / CRPS. The column name "Ratio" in the table refers to the proportion of sensor-free nodes. We can see from the results that the CDSTE consistently outperforms the CSDI, TimeGrad, and DeepAR models on various datasets and at different missing ratios. In the case of the PeMS7-M dataset, at missing ratios of 30\%, 60\%, and 75\%, the CDSTE reduces the CRPS by 33.3\%, 37.5\%, and 46.2\% respectively, compared to the highly competitive baselines. These enhancements are not unique to the PeMS7-M dataset, but are also evident across all other datasets.The CSDI model, originally developed for time-series imputation, underperforms in our traffic state estimation for sensor-free nodes, indicating that it may not be ideally suited for such applications. The DeepAR and TimeGrad models, both of which rely on low-rank approximations of the target, have shown marginally higher error metrics. This increase in error can be attributed to their limitations in modeling the true spatio-temporal data distribution, a problem not present in the proposed CDSTE. 
+
+In terms of MAE and RMSE computed using approximated deterministic estimation results, the CDSTE also performs better than all other models \rev{in most experiments. The only exceptions are observed in experiments on networks of relatively small size, such as PeMS8 and Kowloon, with a 30\% missing data ratio, where CDSTE's performance is slightly worse than that of the STTN model. Nonetheless, this performance gap is small.} The consistent outstanding performance across different error metrics and various datasets demonstrates the effectiveness of CDSTE in handling TSES. In summary, experiment results reveal that CDSTE can effectively model the spatio-temporal correlations in the traffic data and provide accurate traffic state estimation even when faced with a high proportion of nodes devoid of sensors. This capability highlights the model's potential to effectively address the challenges of network-wide traffic state estimation presented by insufficient sensor coverage.
+
+\begin{table}
+\centering
+\colorbox{red!5}{
+\parbox{\linewidth}{
+\caption{Model comparison of traffic state estimation for sensor-free locations in terms of MAE/RMSE/CRPS}
+\label{tab:ModelComp}
+\setlength{\tabcolsep}{3.1pt}
+\begin{tabular}{clccccc} 
+\toprule
+Model & Ratio & \begin{tabular}[c]{@{}c@{}}PeMS7-M\\(speed)\end{tabular} & \begin{tabular}[c]{@{}c@{}}PeMS7-L\\(speed)\end{tabular} & \begin{tabular}[c]{@{}c@{}}PeMS8\\(flow)\end{tabular} & \begin{tabular}[c]{@{}c@{}}Seattle\\(speed)\end{tabular} & \begin{tabular}[c]{@{}c@{}}Kowloon\\(flow)\end{tabular}  \\ 
+\midrule
+\multirow{3}{*}{CDSTE} & 30\%  & \textbf{2.92/5.31/0.04} & \textbf{3.20/6.20/0.05} & 19.68\textbf{/28.31/0.06} & \textbf{1.73/2.72/0.02} & 26.05/39.50/\textbf{0.11} \\
+& 60\% & \textbf{3.66/7.14/0.05} & \textbf{4.10/7.90/0.07} & \textbf{25.03/37.68/0.09} & \textbf{2.32/3.78/0.03} & \textbf{32.11/47.40/0.12} \\
+& 75\% & \textbf{4.35/8.31/0.07} & \textbf{5.00/9.60/0.08} & \textbf{32.04/45.52/0.10} & \textbf{2.89/4.65/0.04} & \textbf{34.40/53.00/0.19} \\
+\midrule
+\multirow{3}{*}{CSDI}& 30\%  & 5.73/10.06/0.06& 6.58/12.64/0.11 & 23.80/35.40/0.09 & 3.50/6.11/0.06 & 31.30/48.20/0.15 \\
+& 60\% & 5.92/10.34/0.08 & 6.50/11.90/0.11 & 26.20/40.90/0.13 & 3.62/6.40/0.06 & 32.80/50.70/0.17\\
+& 75\%  & 6.27/11.25/0.13 & 9.20/15.20/0.16 & 33.50/52.00/0.14 & 4.03/7.21/0.07 & 38.52/56.35/0.23\\ 
+\midrule
+\multirow{3}{*}{TimeGrad} & 30\% & 6.12/10.80/0.08 & 6.60/11.50/0.11 & 23.10/36.00/0.10 & 3.28/5.92/0.05 & 31.60/49.02/0.16\\
+& 60\% & 7.40/12.56/0.11 & 7.80/13.62/0.13 & 25.88/40.12/0.11 & 4.10/7.17/0.08 & 33.10/51.48/0.18\\
+& 75\%  & 8.41/14.10/0.13 & 7.00/13.00/0.12 & 33.80/53.00/0.16 & 4.64/7.90/0.09 & 34.70/53.81/0.21 \\ 
+\midrule
+\multirow{3}{*}{DeepAR}& 30\%  & 6.30/11.10/0.09& 6.80/11.70/0.12& 23.30/36.20/0.11& 3.72/6.34/0.07 & 31.80/49.20/0.17\\
+& 60\%  & 7.18/12.26/0.10& 8.00/13.80/0.14 & 26.40/41.11/0.14  & 4.33/7.28/0.09  & 33.30/51.70/0.19 \\
+  & 75\%  & 8.60/14.40/0.14 & 9.03/15.00/0.15 & 34.00/53.20/0.17  & 4.80/8.10/0.10  & 34.90/54.13/0.22  \\ 
+\hline\hline
+\multirow{3}{*}{\begin{tabular}[c]{@{}c@{}}Linear\\Interpolation\end{tabular}} & 30\%  & \multicolumn{1}{l}{7.19/11.67/ -}   & \multicolumn{1}{l}{7.09/11.25/ -}   & \multicolumn{1}{l}{24.00/35.00/ -} & \multicolumn{1}{l}{6.63/10.27/ -}   & \multicolumn{1}{l}{33.00/50.00/ -}    \\
+  & 60\%  & \multicolumn{1}{l}{7.05/10.98/ -}   & \multicolumn{1}{l}{7.22/11.30/ -}   & \multicolumn{1}{l}{30.00/44.00/ -} & \multicolumn{1}{l}{7.09/11.38/ -}   & \multicolumn{1}{l}{39.00/57.00/ -}    \\
+  & 75\%  & \multicolumn{1}{l}{7.58/11.51/ -}   & \multicolumn{1}{l}{7.50/11.71/ -}   & \multicolumn{1}{l}{38.00/53.00/ -} & \multicolumn{1}{l}{7.33/11.54/ -}   & \multicolumn{1}{l}{42.00/60.00/ -}    \\ 
+\midrule
+\multirow{3}{*}{STTN}  & 30\%  & \multicolumn{1}{l}{4.00/7.00/ -} & \multicolumn{1}{l}{4.17/7.45/ -} & \multicolumn{1}{l}{\textbf{19.33}/29.31/ -} & \multicolumn{1}{l}{3.00/4.65/ -} & \multicolumn{1}{l}{\textbf{25.84/39.01}/ -}    \\
+  & 60\%  & \multicolumn{1}{l}{4.52/7.92/ -} & \multicolumn{1}{l}{4.88/8.50/ -} & \multicolumn{1}{l}{26.03/38.68/ -} & \multicolumn{1}{l}{3.50/5.33/ -} & \multicolumn{1}{l}{33.11/48.40/ -}    \\
+  & 75\%  & \multicolumn{1}{l}{5.16/9.16/ -} & \multicolumn{1}{l}{5.63/10.09/ -}   & \multicolumn{1}{l}{33.04/46.52/ -} & \multicolumn{1}{l}{3.99/5.89/ -} & \multicolumn{1}{l}{40.20/56.30/ -}    \\
+\bottomrule
+\end{tabular}
+}}
+\end{table}
+
+\subsection{Visualization of probabilistic estimation comparison}
+To intuitively examine the performance of CDSTE in comparison with baseline models in traffic state estimation at sensor-free locations, we plot the estimation results in a single day for nine different sensor-free nodes. For this demonstration, we select CSDI as the comparative model and used the PeMS7-M dataset. We set the ratio of $\mathcal{V}_{u}$ to 30\% and present the results in \hyperref[fig:CSDI_compare]{Fig.\,\ref{fig:CSDI_compare}}. We have the following observations from \hyperref[fig:CSDI_compare]{Fig.\,\ref{fig:CSDI_compare}}: (1) CDSTE demonstrates a better capability to capture the data distribution more accurately than CSDI. This was evident in the depicted instance where the estimations of both CSDI and CDSTE overlap with the observations. In such cases, CDSTE provides a more compact prediction interval, suggesting a higher reliability in its estimates. (2) During peak hours in the morning and evening, CSDI, the probabilistic model lacking in spatial dependency learning ability, fails to model high estimation variability. More specifically, some nodes only demonstrate a single peak, either in the morning or evening; yet CSDI still produces a dual-peak estimation result. This problem arises from the absence of a spatial modeling module in CSDI. When estimating traffic states for sensor-free locations based on observations from sensor-equipped nodes, CSDI tends to yield samples by averaging the observable values, resulting in a dual-peak trend. This highlights the importance of a spatial learning module, such as the one incorporated into the proposed CDSTE, for more accurate probabilistic estimation of traffic state for sensor-free nodes.
+
+\begin{figure}[pos=htbp,width=15cm,align=\centering]
+  \centering 
+  \includegraphics[width=1\textwidth]{figs/CSDI_compare.pdf}
+  \caption{Comparison between CSDI and CDSTE in traffic state estimation for sensor-free nodes}\label{fig:CSDI_compare}
+\end{figure}
+
+\rev{\subsection{Ablation analysis}
+We conduct an ablation study using the PeMS7-M dataset with a 30\% missing ratio to assess the impact of temporal and spatial modules, specifically IncepFFT and Spatial Transformer, in the CDSTE framework. \hyperref[fig:Ablation]{Fig.\,\ref{fig:Ablation}} shows the results. First, removing the temporal dependency learning module, IncepFFT, in CDSTE (denoted as w/o Temporal) brings considerable performance degeneration, which validates the importance of modeling temporal correlations between time points. Second, the exclusion of the Spatial Transformer module, which facilitates spatial dependency learning (denoted as w/o Spatial), leads to a more pronounced decline across all evaluation metrics compared to the removal of the temporal module. This greater sensitivity to the absence of spatial learning contrasts with the majority of existing deep learning-based traffic state estimation studies, which generally observe more severe performance degradation when temporal learning modules are removed \citep{xu2020real,liang2022memory}. These findings highlight the unique importance of spatial dependency learning in addressing TSES, differentiating it from the conventional focus on TSEP in existing research.
+}
+
+\begin{figure}[pos=htbp,width=5cm,align=\centering]
+\colorbox{red!5}{
+\parbox{\linewidth}{
+  \centering 
+  \includegraphics[width=0.9\textwidth]{figs/ablation.pdf}
+  \caption{Ablation study}\label{fig:Ablation}
+  }}
+\end{figure}
+
+\section{Conclusions}\label{sec:conclusion}
+In this paper, we introduce a novel probabilistic model, CDSTE, for the challenging task of TSES. TSES is a crucial problem in transportation research, as it involves inferring the entire traffic time series at locations without direct observations, which presents high predictive difficulty. We addressed this problem by integrating the conditional diffusion framework with cutting-edge spatio-temporal networks. CDSTE approximates probabilistic estimations by generating samples with introduced randomness, capturing the complex spatio-temporal dependencies between sensor-free and sensor-equipped locations. We evaluated CDSTE on five real-world traffic datasets and compared its performance with three widely-used baseline models. The experimental results demonstrated that CDSTE outperformed the baselines in terms of both probabilistic estimation metrics (CRPS) and deterministic estimation metrics (MAE and RMSE). CDSTE effectively captured the spatio-temporal correlations in the traffic data and provided reliable probabilistic estimation of traffic states even when faced with a high proportion of sensor-free locations. The results highlight the potential of CDSTE to address the challenges of network-wide traffic state estimation presented by insufficient sensor coverage.
+
+In the future, the work in this study can be further improved and extended. For example, the model can be modified to incorporate alternative models such as graph neural network as the spatial module in the noise estimator to investigate opportunities for further enhancing the model's performance.
+
+% \section*{Acknowledgement}
+
+%% Loading bibliography style file
+%\bibliographystyle{model1-num-names}
+\nolinenumbers
+\bibliographystyle{cas-model2-names}
+
+% Loading bibliography database
+\bibliography{cas-refs}
+
+\end{document}
+
