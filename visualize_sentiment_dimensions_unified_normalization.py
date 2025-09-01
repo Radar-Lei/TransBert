@@ -253,7 +253,6 @@ def create_heatmap_with_unified_normalization(dimension, sentiment_type, data_df
             control_scale=True,
             zoom_control=False
         )
-        
         # 绘制地铁线路
         for idx, row in filtered_lines.iterrows():
             locations = [[point[1], point[0]] for point in row['geometry'].coords]
@@ -265,6 +264,7 @@ def create_heatmap_with_unified_normalization(dimension, sentiment_type, data_df
             ).add_to(m_enhanced)
         
         # 添加热力图层（使用归一化后的数据）
+        {.4: "blue", .6: "cyan", .7: "lime", .8: "yellow", 1: "red"}
         HeatMap(
             heat_data,
             min_opacity=0.3,
