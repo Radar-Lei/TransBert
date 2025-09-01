@@ -264,13 +264,14 @@ def create_heatmap_with_unified_normalization(dimension, sentiment_type, data_df
             ).add_to(m_enhanced)
         
         # 添加热力图层（使用归一化后的数据）
-        {.4: "blue", .6: "cyan", .7: "lime", .8: "yellow", 1: "red"}
+        gradient_1 = {.4: "blue", .6: "cyan", .7: "lime", .8: "yellow", 1: "red"}
         HeatMap(
             heat_data,
             min_opacity=0.3,
             radius=25,
             blur=15,
             max_zoom=18,
+            gradient=gradient_1
         ).add_to(m_enhanced)
 
         compass_html = """
