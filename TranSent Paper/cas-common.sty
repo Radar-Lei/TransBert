@@ -65,7 +65,7 @@
          size   = \large        ,
          shape  = \upshape      ,
          weight = \mdseries     ,
-         color  = black!80  ,
+         color  = black  ,
          before = 6pt          ,
          after  = 0pt           ,
          align  = \raggedright  ,
@@ -76,7 +76,7 @@
          size   = \normalsize   ,
          shape  = \upshape      ,
          weight = \mdseries     ,
-         color  = black!60      ,
+         color  = black      ,
          before = 6pt           ,
          after  = 0pt           ,
          align  = \raggedright  ,
@@ -87,7 +87,7 @@
          size   = \small        ,
          shape  = \upshape      ,
          weight = \mdseries     ,
-         color  = black!50      ,
+         color  = black      ,
          before = 6pt           ,
          after  = 0pt           ,
          align  = \raggedright  ,
@@ -899,14 +899,14 @@
             { \l_stm_au_prefix_tl \c_space_token } 
          \str_if_eq:VnTF \l_stm_au_style_tl  { chinese }
             { %\iow_term:n {STYLE~T=\l_stm_au_style_tl........}
-              \invparsename { #2 } 
+              \invparsename { #2 }
               \textcolor{\l_stm_augroup_color_tl}{\surname}
               \no_break_space:
-              \textcolor{\l_stm_augroup_color_tl !50}{\firstname}
+              \textcolor{\l_stm_augroup_color_tl}{\firstname}
             }
             { %\iow_term:n {STYLE~F=\l_stm_au_style_tl........}  
-              \parsename { #2 } 
-              \textcolor{\l_stm_augroup_color_tl !50}{\firstname} 
+              \parsename { #2 }
+              \textcolor{\l_stm_augroup_color_tl}{\firstname}
               \no_break_space:
               \textcolor{\l_stm_augroup_color_tl}{\surname}
             }
